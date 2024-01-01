@@ -15,22 +15,29 @@
 </head>
 <body>
 
-<div class="container-fluid main-wrapper p-5">
-  <div class="row">
-    <div class="col">
-      <div class="input-group">
-        <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">Select Picross</button>
-        <ul class="dropdown-menu">
-          <li><a class="dropdown-item" href="#">Picross 1</a></li>
-          <li><a class="dropdown-item" href="#">Picross 2</a></li>
-          <li><a class="dropdown-item" href="#">Picross 3</a></li>
+<div class="container">
+  <div class="mt-5">
+    <div class="input-group">
+      <div class="dropdown">
+        <button class="btn btn-primary dropdown-toggle" id="dd1" type="button" data-bs-toggle="dropdown" aria-expanded="false">Create Picross</button>
+        <ul class="dropdown-menu" aria-labelledby="dd1">
+          <li><a class="dropdown-item" href="#" onclick="load(examples[0]);">Picross 1</a></li>
           <li><hr class="dropdown-divider"></li>
-          <li><a class="dropdown-item" href="#">New picross: <span id="dim-x">10</span> x <span id="dim-y">15</span> </a></li>
+          <li><a class="dropdown-item" href="#" onclick="load(custom());">New picross: <span id="dim-x">10</span> x <span id="dim-y">15</span> </a></li>
         </ul>
-        <span class="input-group-text">Dimensions</span>
-        <input type="text" aria-label="Largeur"  class="form-control" onchange="document.getElementById('dim-x').innerText = this.value;">
-        <input type="text" aria-label="Longueur" class="form-control" onchange="document.getElementById('dim-y').innerText = this.value;">
       </div>
+      <span class="input-group-text">Dimensions</span>
+      <input type="text" aria-label="Height" placeholder="Height of the picross" value="10" class="form-control" onchange="get('dim-x').innerText = this.value;">
+      <input type="text" aria-label="Width"  placeholder="Width of the picross"  value="15" class="form-control" onchange="get('dim-y').innerText = this.value;">
+    </div>
+    
+    <div class="mt-5 row">
+      <button class="btn btn-primary col mx-3" id="edit"  type="button" onclick="edit()"  disabled> Clear and edit </button>
+      <button class="btn btn-primary col mx-3" id="check" type="button" onclick="check()" disabled> Check          </button>
+      <button class="btn btn-success col mx-3" id="solve" type="button" onclick="solve()" disabled> Solve          </button>
+    </div>
+    <div class="mt-5">
+      <table id="picross" class="pic-table"></table>
     </div>
   </div>
 </div>
@@ -41,6 +48,23 @@
   crossorigin="anonymous">
 </script>
 <script>
+
+function get(id) { return document.getElementById(id);}
+
+function mk(elt, classes=[], innerText) {
+  const res = document.createElement(elt);
+  res.classList.add(...classes);
+  if (innerText) {
+    res.innerText = innerText;
+  }
+  return res;
+}
+
+function wipe(node) {
+  while (node.firstChild) {
+    node.removeChild(node.lastChild);
+  }
+}
 
 class State {
   constructor(i, color=0) {
@@ -68,19 +92,26 @@ class State {
 
 const specificationSplitter = /[^0-9]+/;
 class LineSpecification {
-  constructor(txt, isRow=true) {
-    this.isRow= isRow;
-    this.values = txt.split(specificationSplitter).map((x)=>parseInt(x));
-    if (this.values.some((x)=>x<=0)) {
+  constructor() { }
+  
+  set(txt, size=0) {
+    const values = txt.split(specificationSplitter).filter((x)=>x.length).map((x)=>parseInt(x));
+    if (values.some((x)=>x<=0)) {
       throw new Error('Only strictly positive integers permitted on specifications!');
     }
-    // Each black squares + separating whites (or even 0 if spec is empty)
-    this.minSize = this.values.length ? this.values.reduce((x,y)=>x+y,0) + this.values.length - 1 : 0;
     
+    // Each black squares + separating whites (or even 0 if spec is empty)
+    const minSize = values.length ? values.reduce((x,y)=>x+y,0) + values.length - 1 : 0;
+    if (size && minSize > size) {
+      throw new Error(`Specification doesn't fit! (min size of ${minSize} > ${size})`);
+    }
+    
+    this.values = values;
+    this.minSize = minSize;
     // One state for each black squares + separating whites + first and last (facultative) whites
     this.nbStates = this.minSize === 0 ? 1 : this.minSize+2;
     // Default states with color 0
-    this.states = new Array(nbStates);
+    this.states = new Array(this.nbStates);
     // Setting states color
     this.states[0] = new State(0,0); // Start with a white state
     let c = 1;
@@ -90,16 +121,17 @@ class LineSpecification {
       }
       this.states[c] = new State(c++,0); // Add an extra white state separator
     }
-    // Setting next, previous, preceding and following states
-    this.states.forEach(function(s,i) {
-      if (i > 0                   ) { s.setPrev( this.states[i-1] ); }
-      if (i < this.states.length-1) { s.setNext( this.states[i+1] ); }
-    });
+    // Setting next and previous states
+    for (let i = 1; i < this.states.length; i++) {
+      this.states[i  ].setPrev( this.states[i-1] );
+      this.states[i-1].setNext( this.states[i  ] );
+    }
+    return this;
   }
   
-  toString() {
-    return this.values.join('.');
-  }
+  toString() { return this.values.join(','); }
+  toRowString() { return this.values.length ? this.values.join('.')    : '-'; }
+  toColString() { return this.values.length ? this.values.join('<br>') : '-'; }
   
   /*
   [1,1,2]
@@ -143,29 +175,107 @@ class LineSpecification {
 }
 
 class PicrossSpecification {
-  constructor(height, width) {
-    this.rowSpecs = new Array(height);
-    this.colSpecs = new Array(width);
+  constructor(rowSpecs, colSpecs) {
+    this.rowSpecs = rowSpecs;
+    this.colSpecs = colSpecs;
   }
   height() { return this.rowSpecs.length; }
   width() { return this.colSpecs.length; }
 }
 
+function unions(sets) {
+  const res = new Set();
+  sets.forEach((v)=>res.add(v));
+  return res;
+}
 
+// Self updating cell
 class Cell {
   constructor(i, j, height, width, rowSpec, colSpec) {
+    const self = this;
     this.i = i;
     this.j = j;
     this.rowSpec = rowSpec;
     this.colSpec = colSpec;
+    // Set of eligibles states for this cell
     this.rowStates = rowSpec.initialStates(width , j);
     this.colStates = colSpec.initialStates(height, i);
+    // Color counts for columns and rows
+    this.rowColorCounts = [0,0];
+    this.rowStates.forEach( function(s) { self.rowColorCounts[s.color]++; } );
+    this.colColorCounts = [0,0];
+    this.colStates.forEach( function(s) { self.colColorCounts[s.color]++; } );
+    
+    // Adjacent cells to infer state eligibility from and propagate updates to
+    this.above = null;
+    this.below = null;
+    this.left  = null;
+    this.right = null;
+    
+    this.color = null; // null means undefined, int means a color, string means an error
+  }
+  
+  // Updates this cell using the eligibles states of above cell
+  eligibleAbove(st) { return unions( st.colStates.map((s)=>s.preceding) ); }
+  eligibleBelow(st) { return unions( st.colStates.map((s)=>s.following) ); }
+  eligibleLeft( st) { return unions( st.rowStates.map((s)=>s.preceding) ); }
+  eligibleRight(st) { return unions( st.rowStates.map((s)=>s.following) ); }
+  
+  updateFromAbove() {
+    if (this.above === null) { return; }
+    const toRemove = this.colStates.difference(this.above.eligibleBelow());
+    toRemove.forEach((v)=>this.colStates.delete(v));
+    if (toRemove.length && this.below) {
+      this.below.updateFromAbove();
+    }
+  }
+  updateFromBelow() {
+    if (this.below === null) { return; }
+    const toRemove = this.colStates.difference(this.below.eligibleAbove());
+    toRemove.forEach((v)=>this.colStates.delete(v));
+    if (toRemove.length && this.above) {
+      this.above.updateFromBelow();
+    }
+  }
+  updateFromLeft() {
+    if (this.left === null) { return; }
+    const toRemove = this.rowStates.difference(this.left.eligibleRight());
+    toRemove.forEach((v)=>this.rowStates.delete(v));
+    if (toRemove.length && this.right) {
+      this.right.updateFromLeft();
+    }
+  }
+  updateFromRight() {
+    if (this.right === null) { return; }
+    const toRemove = this.rowStates.difference(this.right.eligibleLeft());
+    toRemove.forEach((v)=>this.rowStates.delete(v));
+    if (toRemove.length && this.left) {
+      this.left.updateFromRight();
+    }
+  }
+  
+  setColor(c) {
+    const rowStatesToRemove = [...this.rowStates].filter((s)=>s.color !== c);
+    const colStatesToRemove = [...this.colStates].filter((s)=>s.color !== c);
+    if (rowStatesToRemove) {
+      if (this.right) this.right.updateFromLeft();
+      if (this.left ) this.left.updateFromRight();
+    }
+    if (colStatesToRemove) {
+      if (this.above) this.above.updateFromBelow();
+      if (this.below) this.below.updateFromAbove();
+    }
+  }
+  
+  check() {
+    // TODO : update status to "fail" if no solution can be found
+    // In that case, allow a mechanism to reset full row/col (this cell included)
   }
 }
 
 class Picross {
   constructor(specs) {
-    this.heigth = specs.height();
+    this.height = specs.height();
     this.width  = specs.width();
     this.specs = specs;
     // The cells are an array of rows which are arrays of cells.
@@ -176,16 +286,153 @@ class Picross {
         this.cells[i][j] = new Cell(i, j, this.height, this.width, this.specs.rowSpecs[i], this.specs.colSpecs[j]);
       }
     }
-    this.rows = 
+    for (let i = 0; i < this.height; i++) {
+      for (let j = 0; j < this.width; j++) {
+        if (i > 0            ) { this.cells[i][j].above = this.cells[i-1][j  ]; }
+        if (i < this.height-1) { this.cells[i][j].below = this.cells[i+1][j  ]; }
+        if (j > 0            ) { this.cells[i][j].left  = this.cells[i  ][j-1]; }
+        if (j < this.width -1) { this.cells[i][j].right = this.cells[i  ][j+1]; }
+      }
+    }
   }
   
+  setColor(i, j, color) {
+    console.log(i,j,color);
+  }
 }
+
+
+
+var picrossTable, rowDivs, colDivs;
+
+// TODO : make a table instead
+function showPicrossSpec(spec) {
+  rowDivs = new Array(spec.height());
+  colDivs = new Array(spec.width());
+  picrossTable = spec.rowSpecs.map( ()=> new Array(spec.colSpecs.length) );
+  
+  const pic = get('picross');
+  wipe(pic);
+  const specRow = pic.appendChild( mk('tr',['pic-row']) );
+  specRow.appendChild( mk('th',['pic-corner']) );
+  for (let j = 0; j < spec.colSpecs.length; j++) {
+    const s = specRow.appendChild( mk('th', ['pic-col-spec']) )
+    s.innerHTML = spec.colSpecs[j].toColString();
+    s.onclick = function() {
+      if (mode === 'edit') {
+        uncheck();
+        s.innerHTML = spec.colSpecs[j].set( prompt(`Specify column ${j+1}`, spec.colSpecs[j]), spec.height()).toColString();
+      }
+    }
+    colDivs[j] = s;
+  }
+  for (let i = 0; i < spec.rowSpecs.length; i++) {
+    const row = pic.appendChild( mk('tr', ['pic-row']) );
+    const s = row.appendChild( mk('th', ['pic-row-spec']) )
+    s.innerHTML = spec.rowSpecs[i].toRowString();
+    s.onclick = function() {
+      if (mode === 'edit') {
+        uncheck();
+        s.innerHTML = spec.rowSpecs[i].set( prompt(`Specify row ${i+1}`, spec.rowSpecs[i]), spec.width()).toRowString();
+      }
+    }
+    rowDivs[i] = s;
+    for (let j = 0; j < spec.colSpecs.length; j++) {
+      const c = row.appendChild( mk('td', ['pic-cell']) );
+      c.onclick = function() {
+        if (mode === 'solve') {
+          uncheck();
+          const color = prompt(`Color (row ${i+1}, column ${j+1})`);
+          picross.setColor(i, j, color);
+          c.style.background = color ? 'black' : 'white';
+        }
+      }
+      picrossTable[i][j] = c;
+    }
+  }
+}
+
+
+examples = [
+  {
+    // XX.X
+    // X.X.
+    // ..X.
+    // X..X
+    rows: ['2.1','1.1','1','1.1'],
+    cols: ['2.1','1','2','1.1']
+  }
+]
+
+function custom() {
+  const height = parseInt(get('dim-x').innerText);
+  const width  = parseInt(get('dim-y').innerText);
+  // TODO: warn in case incorrect values are provided
+  return {
+    rows: new Array(height).fill(''),
+    cols: new Array(width).fill('')
+  };
+}
+
+var picSpec;
+var picross;
+
+function load(specs) {
+  const rowSpecs = specs.rows.map(function (x) { return new LineSpecification().set(x); });
+  const colSpecs = specs.cols.map(function (x) { return new LineSpecification().set(x); });
+  picSpec = new PicrossSpecification(rowSpecs, colSpecs);
+  edit();
+}
+
+var mode = 'edit';
+var checked = false;
+
+function edit() {
+  showPicrossSpec(picSpec);
+  // Switch buttons
+  get('check').disabled = checked = (mode === 'solve'); // If we come from the "solve" mode, remain "checked"
+  get('edit').disabled = true;
+  get('solve').disabled = !checked;
+  mode = 'edit';
+}
+
+function check() {
+
+  // TODO check indeed
+  
+  // Switch buttons
+  checked = get('check').disabled = true;
+  if (mode === 'edit') get('solve').disabled = false;
+}
+
+function uncheck() {
+  // Switch buttons
+  checked = get('check').disabled = false;
+  get('solve').disabled = !checked;
+}
+
+function solve() {
+  picross = new Picross(picSpec);
+  mode = 'solve';
+  checked = false;
+  get('edit').disabled = false;
+  get('check').disabled = false;
+  get('solve').disabled = !checked;
+}
+
+
 
 var a,b;
 window.onload = function () {
-  
-  a = new LineSpecification('1,2,3');
-  b = a.toStates();
+  // Simple Picross:
+  // XX.
+  // X.X
+  // ..X
+  const specs = examples[0];
+  const rowSpecs = specs.rows.map(function (x) { return new LineSpecification().set(x); });
+  const colSpecs = specs.cols.map(function (x) { return new LineSpecification().set(x); });
+  a = new PicrossSpecification(rowSpecs, colSpecs);
+  b = new Picross(a);
 };
 </script>
 </body>
