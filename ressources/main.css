@@ -56,6 +56,18 @@
   text-align: center;
 }
 
+.pic-cell:focus {
+  border: blue solid 3px;
+}
+
+.pic-cell.black {
+  background-color: black;
+}
+
+.pic-cell.white {
+  background-color: white;
+}
+
 .black {
   background-color: black;
 }
