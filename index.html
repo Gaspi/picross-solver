@@ -14,52 +14,30 @@
   <link rel="stylesheet" href="ressources/main.css">
 </head>
 <body>
-
-<div class="container">
-  <div class="mt-5">
-    <div class="input-group">
-      <div class="dropdown mx-3">
-        <button class="btn btn-primary dropdown-toggle" id="dd1" type="button" data-bs-toggle="dropdown" aria-expanded="false">Load Picross</button>
+  <nav class="navbar navbar-expand-lg bg-dark">
+    <div class="container-xxl">
+      <div class="dropdown me-3">
+        <button class="btn btn-primary dropdown-toggle" id="dd1" type="button" data-bs-toggle="dropdown" aria-expanded="false">Load</button>
         <ul class="dropdown-menu" aria-labelledby="dd1" id="picross-loader"></ul>
       </div>
-      <button class="btn btn-primary" type="button" onclick="load(custom());">Specify Picross: <span id="dim-x">10</span> x <span id="dim-y">15</span></button>
-      <span class="input-group-text">Dimensions</span>
-      <input type="text" aria-label="Height" placeholder="Height of the picross" value="10" class="form-control" onchange="get('dim-x').innerText = this.value;">
-      <input type="text" aria-label="Width"  placeholder="Width of the picross"  value="15" class="form-control" onchange="get('dim-y').innerText = this.value;">
-      <button class="btn btn-success mx-3" type="button" onclick="pasteSpec()">Load copied specification</button>
+      <a class="btn btn-primary me-3" type="button" href="editor.html">Create</a>
+      <button class="btn btn-success me-auto" type="button" onclick="pasteSpec()">Paste</button>
+      <button class="btn btn-primary me-3" id="clear" type="button" onclick="resetFromSpec()" disabled> Clear </button>
+      <button class="btn btn-success"      id="solve" type="button" onclick="solve()" disabled> Solve </button>
     </div>
-    
-    <div class="mt-5 row">
-      <button class="btn btn-primary col mx-3" id="edit"  type="button" onclick="edit()"  disabled> Clear and edit </button>
-      <button class="btn btn-primary col mx-3" id="check" type="button" onclick="check()" disabled> Check          </button>
-      <button class="btn btn-success col mx-3" id="solve" type="button" onclick="solve()" disabled> Solve          </button>
-    </div>
-    <div class="mt-5">
-      <table id="picross" class="pic-table"></table>
-    </div>
-    <div id="logs" class="mt-5">
-    </div>
+  </nav>
+  <div class="container-xxl">
+    <div id="picross" class="mt-3"></div>
+    <div id="logs" class="mt-5"></div>
   </div>
-</div>
-
-<script
-  src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"
-  integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM"
-  crossorigin="anonymous">
-</script>
-<script src="ressources/utils.js"> </script>
-<script src="ressources/main.js"> </script>
-
-
-<script>
-var a, b;
-window.onload = function () {
-  const specs = examples[0];
-  const rowSpecs = specs.rows.map(function (x) { return new LineSpecification(x, specs.cols.length, isRow=true ); });
-  const colSpecs = specs.cols.map(function (x) { return new LineSpecification(x, specs.rows.length, isRow=false); });
-  a = new PicrossSpecification(rowSpecs, colSpecs);
-  b = new Picross(a);
-};
-</script>
+  <script
+    src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"
+    integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM"
+    crossorigin="anonymous">
+  </script>
+  <script src="ressources/utils.js"> </script>
+  <script src="ressources/picross.js"> </script>
+  <script src="ressources/solver.js"> </script>
+  <script src="ressources/main.js"> </script>
 </body>
 </html>

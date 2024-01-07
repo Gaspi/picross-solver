@@ -16,6 +16,7 @@ function wipe(node) {
   while (node.firstChild) {
     node.removeChild(node.lastChild);
   }
+  return node;
 }
 
 function arr(length, fill=null) {
@@ -27,3 +28,17 @@ function arr(length, fill=null) {
   }
   return res;
 }
+
+
+function Paintable() {
+  const painters = new Set();
+  const self = this;
+  this.paint         = function()  { painters.forEach((p)=>p.paint(self)); };
+  this.addPainter    = function(p) {
+    painters.add(p);
+    p.paint(self);
+  };
+  this.deletePainter = function(p) { painters.delete(p); };
+  this.clearPainters = function(p) { painters.clear();   };
+}
+

@@ -36,7 +36,7 @@ function setColor(i,j,c) {
   cols[j].innerHTML = spec( picross.cols[j] ).join('<br>');
 }
 
-function cell(i,j) {
+function mkCell(i,j) {
   const c = cells[i][j] = mk('td', ['pic-cell','white']);
   c.addEventListener("click", function () {
     setColor(i,j,1);
@@ -49,18 +49,13 @@ function cell(i,j) {
   return c;
 }
 
-function initPicross(height=null, width=null) {
-  if (width  === null || height === null) {
-    height = parseInt(get('dim-x').innerText);
-    width  = parseInt(get('dim-y').innerText);
-  }
+function initPicross(height, width) {
   picross = new Picross(height, width);
   rows = new Array(height);
   cols = new Array(width);
   cells = new Array(height).fill(0).map(()=>new Array(width));
   
-  const pic = get('picross');
-  wipe(pic);
+  const pic = wipe( get('picross') );
   const specRow = pic.appendChild( mk('tr',['pic-row']) );
   specRow.appendChild( mk('th',['pic-corner']) );
   for (let j = 0; j < width; j++) {
@@ -70,16 +65,22 @@ function initPicross(height=null, width=null) {
     const row = pic.appendChild( mk('tr', ['pic-row']) );
     rows[i] = row.appendChild( mk('th', ['pic-row-spec']) );
     for (let j = 0; j < width; j++) {
-      row.appendChild( cell(i,j) );
+      row.appendChild( mkCell(i,j) );
     }
   }
+  get('copy').disabled = false;
+  get('copyspec').disabled = false;
+}
+
+function newPicross() {
+  initPicross(parseInt(get('dim-x').innerText) , parseInt(get('dim-y').innerText));
 }
 
 function loadPicrossFromString(txt) {
   const spec = JSON.parse(txt);
-  initPicross( new Picross(spec.height, spec.width) );
-  spec.rows.forEach(function (r,i) {
-    r.forEach(function (c,j) {
+  initPicross(spec.height, spec.width);
+  spec.rows.forEach(function (row, i) {
+    row.forEach(function (c, j) {
       setColor(i, j, c);
     });
   });
