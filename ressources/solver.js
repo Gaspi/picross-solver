@@ -92,7 +92,7 @@ class Cell extends Paintable {
   }
   
   setColor(c) {
-    if (this.color === null) {
+    if (this.color === null && c >= 0) {
       this.row.setColor(c);
       this.col.setColor(c);
       this.color = c;
@@ -150,6 +150,9 @@ class PicrossSolver extends Picross {
   }
   
   setColor(i, j, c) {
+    if (c < 0 || c === null || this.cells[i][j].color >= 0) {
+      this.resetCellFromSpec(i,j);
+    }
     this.cells[i][j].setColor(c);
   }
   
@@ -164,16 +167,18 @@ class PicrossSolver extends Picross {
     });
   }
   
+  resetCellFromSpec(i, j) {
+    this.cells[i].forEach((cell) => cell.resetFromSpec());
+    this.cells.forEach((row) => row[j].resetFromSpec());
+  }
+  
   resetFromSpec() {
     this.cells.forEach((row) => row.forEach((cell) => cell.resetFromSpec()));
     this.refreshFromGrid();
   }
   
-  
-  
   trySolve() {
     this.cells.forEach((row) => row.forEach((cell) => cell.trySolve()));
-    
   }
 }
 

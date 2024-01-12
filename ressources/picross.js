@@ -26,60 +26,73 @@ class State {
   }
 }
 
-
-const specificationSplitter = /[^0-9]+/;
+class BlockSpecification {
+  constructor(txt) {
+    const s = txt.split(/\|/);
+    this.size = parseInt(s[0]);
+    this.color = s.length > 1 ? parseInt(s[1]) : 1;
+    if (!(this.size>0 && this.color>0)) {
+      throw new Error(`Could not parse [${txt}] into a specification block`);
+    }
+  }
+  toString() {
+    return this.size + (this.color === 1 ? '' : '|'+this.color);
+  }
+}
 
 class LineSpecification extends Paintable {
-  constructor(txt, size) {
+  constructor(txt, size=null) {
     super();
     this.size = size;
-    this.set(txt);
+    this.setBlocks( txt.split(/\./).filter((x)=>x.length).map((x)=>new BlockSpecification(x)) );
+  }
+  
+  toString() {
+    return this.blocks.join('.');
   }
   
   setSize(size) {
     this.size = size;
-    this.setValues(this.values);
+    this.checkSize();
     return this;
   }
   
-  setValues(values) {
-    if (values.some((x)=>x<=0)) {
-      throw new Error('Only strictly positive integers permitted on specifications!');
-    }
-    
-    // Each black squares + separating whites (or even 0 if spec is empty)
-    const minSize = values.length ? values.reduce((x,y)=>x+y,0) + values.length - 1 : 0;
-    if (this.size && minSize > this.size) {
-      throw new Error(`Specification doesn't fit! (min size of ${minSize} > ${size})`);
-    }
-    
-    this.values = values;
-    this.minSize = minSize;
-    // One state for each black squares + separating whites + first and last (facultative) whites
-    this.nbStates = this.minSize === 0 ? 1 : this.minSize+2;
-    // Default states with color 0
-    this.states = new Array(this.nbStates);
+  setBlocks(blocks) {
+    const states = new Array();
     // Setting states color
-    let c = 0;
-    this.states[c] = new State(c++,0); // Start with a white state
-    for (const v of this.values) {
-      for (let i = 0; i < v; i++) {
-        this.states[c] = new State(c++, 1); // Fill each segment with that many black state
+    let prev_color = null;
+    for (const block of blocks) {
+      if (prev_color === null || block.color === prev_color) {
+        states.push( new State(states.length) );
       }
-      this.states[c] = new State(c++, 0); // Add an extra white state separator
+      prev_color = block.color;
+      for (let i = 0; i < block.size; i++) {
+        states.push( new State(states.length, block.color) );
+      }
     }
+    states.push( new State(states.length) );
+    
+    this.minSize = blocks.length ? states.length-2 : 0;
+    this.checkSize();
+    
     // Setting next and previous states
-    for (let i = 1; i < this.states.length; i++) {
-      this.states[i  ].setPrev( this.states[i-1] );
-      this.states[i-1].setNext( this.states[i  ] );
+    for (let i = 1; i < states.length; i++) {
+      states[i  ].setPrev( states[i-1] );
+      states[i-1].setNext( states[i  ] );
     }
+    this.blocks = blocks;
+    this.states = states;
+    this.nbStates = states.length;
     this.paint();
     return this;
   }
   
-  set(txt) {
-    return this.setValues( txt.split(specificationSplitter).filter((x)=>x.length).map((x)=>parseInt(x)) );
+  checkSize() {
+    if (this.size && this.minSize > this.size) {
+      throw new Error(`Specification doesn't fit! (min size of ${minSize} > ${size})`);
+    }
   }
+  
   
   /*
   3 values: [1,1,2]
@@ -109,31 +122,31 @@ class LineSpecification extends Paintable {
     }
     return new Set(this.states.slice(min, max+1));
   }
-  
-  toString() {
-    return this.values.join('.');
-  }
 }
 
 
 // A pair of LineSpecifications
 class PicrossSpecification {
-  constructor(rowSpecs, colSpecs) {
-    this.rowSpecs = rowSpecs;
-    this.colSpecs = colSpecs;
+  constructor(txt) {
+    const s = txt.split(";");
+    this.title = s.length > 2 ? s[0] : null;
+    this.rowSpecs = s[ s.length > 2 ? 1 : 0 ].split(',').map((s)=>new LineSpecification(s));
+    this.colSpecs = s[ s.length > 2 ? 2 : 1 ].split(',').map((s)=>new LineSpecification(s));
+    this.height= this.rowSpecs.length;
+    this.width = this.colSpecs.length;
+    this.rowSpecs.forEach( (spec)=>spec.setSize(this.width ) );
+    this.colSpecs.forEach( (spec)=>spec.setSize(this.height) );
   }
-  height() { return this.rowSpecs.length; }
-  width()  { return this.colSpecs.length; }
 }
 
 
 class Picross {
   constructor(spec, grid=null) {
     this.spec = spec;
-    this.height = spec.height();
-    this.width  = spec.width();
+    this.height = spec.height;
+    this.width  = spec.width;
     if (grid === null) {
-      this.grid = spec.rowSpecs.map((_,i) => spec.colSpecs.map((_,j) => ({ color: 0 })));
+      this.grid = spec.rowSpecs.map(() => spec.colSpecs.map(() => ({ color: 0 })));
     } else {
       this.grid = spec.rowSpecs.map((_,i) => spec.colSpecs.map((_,j) => ({ color: grid[i][j] })));
     }

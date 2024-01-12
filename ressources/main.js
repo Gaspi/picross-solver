@@ -4,7 +4,7 @@ class RowSpecificationPainter {
     this.dom = mk('th', ['pic-row-spec','nonclickable']);
   }
   paint(lineSpec) {
-    this.dom.innerHTML = lineSpec.values.join('.');
+    this.dom.innerHTML = lineSpec.blocks.join('.');
   }
 }
 
@@ -13,7 +13,7 @@ class ColSpecificationPainter {
     this.dom = mk('th', ['pic-col-spec','nonclickable']);
   }
   paint(lineSpec) {
-    this.dom.innerHTML = lineSpec.values.join('<br>');
+    this.dom.innerHTML = lineSpec.blocks.join('<br>');
   }
 }
 
@@ -48,7 +48,6 @@ class CellPainter {
   }
 }
 
-
 class PicrossPainter {
   constructor(picross) {
     this.dom = mk('table', ['pic-table','mx-auto']);
@@ -61,8 +60,7 @@ class PicrossPainter {
       const colPainter = new ColSpecificationPainter();
       colSpec.addPainter(colPainter);
       specRow.appendChild(colPainter.dom).onclick = function() {
-        // TODO: move this to editor
-        colSpec.set( prompt("Column specification:", colSpec) );
+        console.log(colSpec);
       }
     }
     for (let i = 0; i < picross.height; i++) {
@@ -72,7 +70,7 @@ class PicrossPainter {
       const row = this.dom.appendChild( mk('tr', ['pic-row']) );
       // TODO: move this to editor
       row.appendChild( rowPainter.dom ).onclick = function() {
-        rowSpec.set( prompt("Row specification: ", rowPainter.lineSpec) );
+        console.log(rowSpec);
       }
       for (let j = 0; j < picross.width; j++) {
         const cellPainter = new CellPainter();
@@ -115,41 +113,32 @@ function loadExample(example) {
   const a = get('picross-loader').appendChild( mk('li') ).appendChild( mk('a', ['dropdown-item']));
   a.href="#";
   a.onclick = function() { load(example); };
-  a.innerText = example.title;
+  a.innerText = example.split(";")[0];
 }
 
 
 function custom() {
   const height = parseInt(get('dim-x').innerText);
   const width  = parseInt(get('dim-y').innerText);
-  // TODO: warn in case incorrect values are provided
-  return {
-    rows: new Array(height).fill(''),
-    cols: new Array(width).fill('')
-  };
+  return `custom;${','.repeat(height-1)};${','.repeat(width-1)}`;
 }
 
 
 function pasteSpec() {
-  navigator.clipboard.readText().then(function(txt) {
-    try {
-      load(JSON.parse(txt));
-    } catch (error) {
-      alert("Could not load copied picross...");
-    }
-  });
+  navigator.clipboard.readText().then(load);
 }
 
 function load(specs) {
-  const rowSpecs = specs.rows.map(function(x) { return new LineSpecification(x, specs.cols.length); });
-  const colSpecs = specs.cols.map(function(x) { return new LineSpecification(x, specs.rows.length); });
-  picSpec = new PicrossSpecification(rowSpecs, colSpecs);
-  picross = new PicrossSolver(picSpec);
-  picrossTable = new PicrossPainter(picross);
-  wipe(get('picross')).appendChild(picrossTable.dom);
-  get('clear').disabled = false;
-  get('solve').disabled = false;
-  
+  try {
+    picSpec = new PicrossSpecification(specs);
+    picross = new PicrossSolver(picSpec);
+    picrossTable = new PicrossPainter(picross);
+    wipe(get('picross')).appendChild(picrossTable.dom);
+    get('clear').disabled = false;
+    get('solve').disabled = false;
+  } catch (error) {
+    alert("Could not load copied picross...");
+  }
 }
 
 function resetFromSpec() {
@@ -162,16 +151,10 @@ function solve() {
 }
 
 // Loading examples
-
-function parseRaw(txt) {
-  const s = txt.split(";");
-  return { title: s[0], rows: s[1].split(','), cols: s[2].split(',') };
-}
-
 window.onload = function() {
   const req = new XMLHttpRequest();
   req.addEventListener("load", function() {
-    req.response.split(/\r?\n/).filter((t)=>t.length>0).map(parseRaw).forEach(loadExample);
+    req.response.split(/\r?\n/).filter((t)=>t.length).forEach(loadExample);
   });
   req.open("GET", "./ressources/examples.csv");
   req.send();

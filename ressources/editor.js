@@ -103,8 +103,6 @@ function pastePicross() {
 }
 
 function copySpec() {
-  copyObject({
-    rows: picross.rows.map((x)=>spec(x).join('.')),
-    cols: picross.cols.map((x)=>spec(x).join('.'))
-  });
+  const txt = `copied;${picross.rows.map((x)=>spec(x).join('.')).join(',')};${picross.cols.map((x)=>spec(x).join('.')).join(',')}`;
+  navigator.clipboard.writeText(txt).then(alert("Copied"));
 }
