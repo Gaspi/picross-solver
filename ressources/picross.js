@@ -126,3 +126,34 @@ class PicrossSpecification {
   width()  { return this.colSpecs.length; }
 }
 
+
+class Picross {
+  constructor(spec, grid=null) {
+    this.spec = spec;
+    this.height = spec.height();
+    this.width  = spec.width();
+    if (grid === null) {
+      this.grid = spec.rowSpecs.map((_,i) => spec.colSpecs.map((_,j) => ({ color: 0 })));
+    } else {
+      this.grid = spec.rowSpecs.map((_,i) => spec.colSpecs.map((_,j) => ({ color: grid[i][j] })));
+    }
+  }
+  
+  toJSON() {
+    return JSON.stringify({
+      specification: {
+        rows: this.spec.rowSpecs,
+        cols: this.spec.rowSpecs
+      },
+      grid: this.grid.map((r)=>r.map((c)=>c.color))
+    });
+  }
+  
+  fromJSON() {
+    const o = JSON.parse(txt);
+    //...
+  }
+  
+}
+
+

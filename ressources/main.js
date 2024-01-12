@@ -92,9 +92,12 @@ class PicrossPainter {
             <h5>Row ${i+1}:</h4>
               <p> <b>Black:</b> ${cell.row.color_counts[1]} <b> / White:</b> ${cell.row.color_counts[0]} </p>
             <h5>Col ${j+1}:</h4>
-              <p> <b>Black:</b> ${cell.col.color_counts[1]} <b> / White:</b> ${cell.col.color_counts[0]} </p>`;
+              <p> <b>Black:</b> ${cell.col.color_counts[1]} <b> / White:</b> ${cell.col.color_counts[0]} </p>
+              <h5> Row States</h5> <p> ${cell.row.states} </p>
+              <h5> Col States</h5> <p> ${cell.col.states} </p>
+              `;
         });
-        cellPainter.dom.addEventListener("click", () => cell.trySolve());
+        //cellPainter.dom.addEventListener("click", () => cell.trySolve());
         cellPainter.dom.addEventListener("keydown", function(e) {
           if (e.key === 'b') cell.setColor(1);
           if (e.key === 'w') cell.setColor(0);
@@ -106,19 +109,14 @@ class PicrossPainter {
 
 var picSpec, picross, picrossTable;
 
-// Loading examples
-[
-  {
-    title: "Simple example",
-    rows: ['2.1','1.1','1','1.1'],
-    cols: ['2.1','1','2','1.1']
-  }
-].forEach(function(ex) {
+
+// Example loading
+function loadExample(example) {
   const a = get('picross-loader').appendChild( mk('li') ).appendChild( mk('a', ['dropdown-item']));
   a.href="#";
-  a.onclick = function() { load(ex); };
-  a.innerText = ex.title;
-})
+  a.onclick = function() { load(example); };
+  a.innerText = example.title;
+}
 
 
 function custom() {
@@ -146,7 +144,7 @@ function load(specs) {
   const rowSpecs = specs.rows.map(function(x) { return new LineSpecification(x, specs.cols.length); });
   const colSpecs = specs.cols.map(function(x) { return new LineSpecification(x, specs.rows.length); });
   picSpec = new PicrossSpecification(rowSpecs, colSpecs);
-  picross = new Picross(picSpec);
+  picross = new PicrossSolver(picSpec);
   picrossTable = new PicrossPainter(picross);
   wipe(get('picross')).appendChild(picrossTable.dom);
   get('clear').disabled = false;
@@ -163,4 +161,18 @@ function solve() {
   picross.trySolve();
 }
 
+// Loading examples
 
+function parseRaw(txt) {
+  const s = txt.split(";");
+  return { title: s[0], rows: s[1].split(','), cols: s[2].split(',') };
+}
+
+window.onload = function() {
+  const req = new XMLHttpRequest();
+  req.addEventListener("load", function() {
+    req.response.split(/\r?\n/).filter((t)=>t.length>0).map(parseRaw).forEach(loadExample);
+  });
+  req.open("GET", "./ressources/examples.csv");
+  req.send();
+}
