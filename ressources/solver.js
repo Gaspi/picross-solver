@@ -1,19 +1,16 @@
 
-
-
 // A self-updating set of possible states according to neighbors
 class LineCell {
-  constructor(i, cell) {
+  constructor(i) {
     this.i = i;
-    this.cell = cell;
     this.prev = null;
     this.next = null;
     this.states = new Set();
     this.color_counts = [0,0];
   }
   
-  resetFromSpec(spec) {
-    this.states = spec.initialStates(this.i);
+  setStates(states) {
+    this.states = states ;
     this.color_counts = [0,0];
     for (const state of this.states) this.color_counts[state.color]++;
   }
@@ -54,8 +51,8 @@ class LineCell {
   removeState(s) {
     if (this.states.has(s)) {
       this.color_counts[s.color]--;
+      s.possible_positions.delete(this);
       this.states.delete(s);
-      this.cell.paint();
     }
   }
   
@@ -68,7 +65,6 @@ class LineCell {
     }
   }
 }
-
 
 
 // A pair of LineCells
@@ -92,7 +88,10 @@ class Cell extends Paintable {
   }
   
   setColor(c) {
-    if (this.color === null && c >= 0) {
+    if (this.color >= 0 && this.color !== c) {
+      this.resetFromSpec();
+    }
+    if (c >= 0) {
       this.row.setColor(c);
       this.col.setColor(c);
       this.color = c;
@@ -132,9 +131,11 @@ class Cell extends Paintable {
 
 
 
-class PicrossSolver extends Picross {
-  constructor(spec, grid=null) {
-    super(spec, grid);
+class PicrossSolver {
+  constructor(spec) {
+    this.spec = spec;
+    this.height = spec.height;
+    this.width  = spec.width;
     // The cells are an array of rows which are arrays of cells
     this.cells = spec.rowSpecs.map((_,i) => spec.colSpecs.map((_,j) => new Cell(i, j, spec)));
     // We link the LineCells with their direct neighbors
@@ -146,7 +147,6 @@ class PicrossSolver extends Picross {
         if (j < this.width -1) { this.cells[i][j].row.next = this.cells[i  ][j+1].row; }
       }
     }
-    this.refreshFromGrid();
   }
   
   setColor(i, j, c) {
@@ -156,25 +156,14 @@ class PicrossSolver extends Picross {
     this.cells[i][j].setColor(c);
   }
   
-  refreshFromGrid() {
-    const self = this;
-    this.grid.forEach(function (row,i) {
-      row.forEach( function (cell, j) {
-        if (cell.color > 0) {
-          self.setColor(i, j, cell.color);
-        }
-      });
-    });
-  }
-  
   resetCellFromSpec(i, j) {
-    this.cells[i].forEach((cell) => cell.resetFromSpec());
+    
+    this.cells[i].forEach((cell) => cell.row.());
     this.cells.forEach((row) => row[j].resetFromSpec());
   }
   
   resetFromSpec() {
     this.cells.forEach((row) => row.forEach((cell) => cell.resetFromSpec()));
-    this.refreshFromGrid();
   }
   
   trySolve() {

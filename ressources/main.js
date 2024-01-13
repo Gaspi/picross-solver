@@ -48,64 +48,107 @@ class CellPainter {
   }
 }
 
-class PicrossPainter {
-  constructor(picross) {
-    this.dom = mk('table', ['pic-table','mx-auto']);
-    
-    // Populating table
-    const specRow = this.dom.appendChild( mk('tr',['pic-row']) );
-    specRow.appendChild( mk('th',['pic-corner']) );
-    for (let j = 0; j < picross.width; j++) {
-      const colSpec = picross.spec.colSpecs[j];
-      const colPainter = new ColSpecificationPainter();
-      colSpec.addPainter(colPainter);
-      specRow.appendChild(colPainter.dom).onclick = function() {
-        console.log(colSpec);
-      }
-    }
-    for (let i = 0; i < picross.height; i++) {
-      const rowSpec = picross.spec.rowSpecs[i];
-      const rowPainter = new RowSpecificationPainter();
-      rowSpec.addPainter(rowPainter);
-      const row = this.dom.appendChild( mk('tr', ['pic-row']) );
-      // TODO: move this to editor
-      row.appendChild( rowPainter.dom ).onclick = function() {
-        console.log(rowSpec);
-      }
-      for (let j = 0; j < picross.width; j++) {
-        const cellPainter = new CellPainter();
-        const cell = picross.cells[i][j];
-        cell.addPainter(cellPainter);
-        row.appendChild(cellPainter.dom);
-        cellPainter.dom.tabIndex = -1; // Necessary for keydown event to be recorded
-        cellPainter.dom.addEventListener("focus", function (e) {
-          let status = cell.statusCode();
-          if (status === 'unsolved') {
-            let score = Math.round(100 * cell.score());
-            if (score > 99) { score = ">99"; }
-            if (score <  1) { score = "<1"; }
-            status = "unsolved ("+score+"% black)";
-          }
-          get('logs').innerHTML = `<h4>Status: ${status}</h3>
-            <h5>Row ${i+1}:</h4>
-              <p> <b>Black:</b> ${cell.row.color_counts[1]} <b> / White:</b> ${cell.row.color_counts[0]} </p>
-            <h5>Col ${j+1}:</h4>
-              <p> <b>Black:</b> ${cell.col.color_counts[1]} <b> / White:</b> ${cell.col.color_counts[0]} </p>
-              <h5> Row States</h5> <p> ${cell.row.states} </p>
-              <h5> Col States</h5> <p> ${cell.col.states} </p>
-              `;
-        });
-        //cellPainter.dom.addEventListener("click", () => cell.trySolve());
-        cellPainter.dom.addEventListener("keydown", function(e) {
-          if (e.key === 'b') cell.setColor(1);
-          if (e.key === 'w') cell.setColor(0);
-        });
-      }
-    }
-  }
+
+var table, rowSpecs, colSpecs, cells;
+
+function initRowSpec(rowSpec) {
+  const dom = mk('th', ['pic-row-spec','nonclickable']);
+  dom.onclick = function() { console.log(rowSpec); };
+  rowSpec.blocks.forEach(function(block,i) {
+    if (i>0) { dom.appendChild( document.createTextNode('.') ); }
+    dom.appendChild( mk('span', ['spec', 'col-'+block.color]) ).innerText = block.size;
+  });
+  return dom;
 }
 
-var picSpec, picross, picrossTable;
+function initColSpec(colSpec) {
+  const dom = mk('th', ['pic-col-spec','nonclickable']);
+  dom.onclick = function() { console.log(colSpec); };
+  colSpec.blocks.forEach(function(block,i) {
+    if (i>0) { dom.appendChild( mk('br') ); }
+    dom.appendChild( mk('span', ['spec', 'col-'+block.color]) ).innerText = block.size;
+  });
+  return dom;
+}
+
+var picrossTracker;
+function initTable(tracker) {
+  picross = tracker.pic;
+  
+  table = wipe(get('picross')).appendChild(mk('table', ['pic-table','mx-auto']));
+  rowSpecs = picross.spec.rowSpecs.map(initRowSpec);
+  colSpecs = picross.spec.colSpecs.map(initColSpec);
+  cells = picross.spec.rowSpecs.map(() => picross.spec.colSpecs.map(() => mk('td', ['pic-cell','clickable'])));
+  
+  // Populating table
+  const specRow = table.appendChild( mk('tr',['pic-row']) );
+  specRow.appendChild( mk('th',['pic-corner']) );
+  colSpecs.forEach((dom) => specRow.appendChild(dom));
+  rowSpecs.forEach(function (dom,i) {
+    const row = table.appendChild( mk('tr', ['pic-row']) );
+    row.appendChild(dom);
+    cells[i].forEach(function (dom,j) {
+      row.appendChild(dom);
+      //dom.tabIndex = -1; // Necessary for keydown event to be recorded
+      dom.addEventListener("mouseenter", function (e) {
+        const status = tracker.getStatus(i,j);
+        if (status.code === 'unsolved') {
+          let score = Math.round(100 * status.score);
+          if (score > 99) { score = ">99"; }
+          if (score <  1) { score = "<1"; }
+          status.code = "unsolved ("+score+"% black)";
+        }
+        get('logs').innerHTML = `<h4>Status: ${status.code}</h3>
+          <h5>Row ${i+1}:</h4>
+            <p> <b>Black:</b> ${status.row_colors[1]} <b> / White:</b> ${status.row_colors[0]} </p>
+          <h5>Col ${j+1}:</h4>
+            <p> <b>Black:</b> ${status.col_colors[1]} <b> / White:</b> ${status.col_colors[0]} </p>`;
+      });
+      dom.addEventListener("click"      , (e) => { e.preventDefault(); tracker.setColor(i,j,1   ); });
+      dom.addEventListener("contextmenu", (e) => { e.preventDefault(); tracker.setColor(i,j,0   ); });
+      dom.addEventListener("auxclick"   , (e) => { e.preventDefault(); tracker.setColor(i,j,null); });
+      
+      dom.addEventListener("keydown", function(e) {
+        if (e.key === 'b') tracker.setColor(i,j,1);
+        if (e.key === 'w') tracker.setColor(i,j,0);
+        if (e.key === 'c') tracker.setColor(i,j,null);
+      });
+    });
+  });
+  
+  // Setup the repainting event
+  tracker.paint = function () {
+    cells.forEach(function(row,i) {
+      row.forEach(function(cell,j) {
+        const status = tracker.getStatus(i,j);
+        if (tracker.pic.getColor(i,j) == 1) {
+          cell.style.backgroundColor = 'black';
+          cell.innerText = "";
+        } else if (tracker.pic.getColor(i,j) == 0) {
+          cell.style.backgroundColor = 'white';
+          cell.innerText = "-";
+        } else if (status.code == 'error') {
+          cell.style.backgroundColor = "red";
+          cell.innerText = "";
+        } else if (status.code == 'black') {
+          cell.style.backgroundColor = "rgba(0,0,0,0.9)";
+          cell.style.color = "white";
+          cell.innerText = "!";
+        } else if (status.code == 'white') {
+          cell.style.backgroundColor = "rgba(0,0,0,0.1)";
+          cell.style.color = "blue";
+          cell.innerText = "!";
+        } else {
+          cell.style.backgroundColor = "rgba(0,0,0,"+ (0.2+0.6*status.score)+")";
+          cell.innerText = "";
+        }
+      });
+    });
+  };
+  tracker.paint();
+}
+
+var picross, picrossTracker;
 
 
 // Example loading
@@ -129,25 +172,24 @@ function pasteSpec() {
 }
 
 function load(specs) {
-  try {
-    picSpec = new PicrossSpecification(specs);
-    picross = new PicrossSolver(picSpec);
-    picrossTable = new PicrossPainter(picross);
-    wipe(get('picross')).appendChild(picrossTable.dom);
+//  try {
+    picross = new Picross(specs);
+    picrossTracker = new PicrossStateTracker(picross);
+    initTable(picrossTracker);
     get('clear').disabled = false;
     get('solve').disabled = false;
-  } catch (error) {
-    alert("Could not load copied picross...");
-  }
+//  } catch (error) {
+//    alert("Could not load copied picross...");
+//  }
 }
 
 function resetFromSpec() {
-  picross.resetFromSpec();
+  picrossTracker.resetFromSpec();
 }
 
 
 function solve() {
-  picross.trySolve();
+  picrossTracker.trySolveAll();
 }
 
 // Loading examples

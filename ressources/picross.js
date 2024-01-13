@@ -1,8 +1,13 @@
 
 class State {
-  constructor(i, color=0) {
-    this.i = i;
-    this.color = color;
+  constructor(i, block) {
+    this.i = i; // Index of the state in the line
+    if (block) {
+      this.block = block;
+      block.states.push(this);
+    }
+    this.color = block ? block.color : 0;
+    
     this.preceding = (this.color > 0 ? [] : [this]); // One of these states must be preceding this one
     this.following = (this.color > 0 ? [] : [this]); // One of these states must be following this one
     this.next = null;
@@ -34,11 +39,13 @@ class BlockSpecification {
     if (!(this.size>0 && this.color>0)) {
       throw new Error(`Could not parse [${txt}] into a specification block`);
     }
+    this.states = [];
   }
   toString() {
     return this.size + (this.color === 1 ? '' : '|'+this.color);
   }
 }
+
 
 class LineSpecification extends Paintable {
   constructor(txt, size=null) {
@@ -67,7 +74,7 @@ class LineSpecification extends Paintable {
       }
       prev_color = block.color;
       for (let i = 0; i < block.size; i++) {
-        states.push( new State(states.length, block.color) );
+        states.push( new State(states.length, block) );
       }
     }
     states.push( new State(states.length) );
@@ -80,6 +87,8 @@ class LineSpecification extends Paintable {
       states[i  ].setPrev( states[i-1] );
       states[i-1].setNext( states[i  ] );
     }
+    // Setting index
+    states.forEach((s,i)=>s.i=i);
     this.blocks = blocks;
     this.states = states;
     this.nbStates = states.length;
@@ -89,7 +98,7 @@ class LineSpecification extends Paintable {
   
   checkSize() {
     if (this.size && this.minSize > this.size) {
-      throw new Error(`Specification doesn't fit! (min size of ${minSize} > ${size})`);
+      throw new Error(`Specification doesn't fit! (min size of ${this.minSize} > ${this.size})`);
     }
   }
   
@@ -129,7 +138,7 @@ class LineSpecification extends Paintable {
 class PicrossSpecification {
   constructor(txt) {
     const s = txt.split(";");
-    this.title = s.length > 2 ? s[0] : null;
+    this.title = (s.length > 2 && s[0].length) ? s[0] : null;
     this.rowSpecs = s[ s.length > 2 ? 1 : 0 ].split(',').map((s)=>new LineSpecification(s));
     this.colSpecs = s[ s.length > 2 ? 2 : 1 ].split(',').map((s)=>new LineSpecification(s));
     this.height= this.rowSpecs.length;
@@ -137,36 +146,198 @@ class PicrossSpecification {
     this.rowSpecs.forEach( (spec)=>spec.setSize(this.width ) );
     this.colSpecs.forEach( (spec)=>spec.setSize(this.height) );
   }
+  
+  toString() {
+    return `${this.title||''};${this.rowSpecs.join(',')};${this.colSpecs.join(',')}`;
+  }
+}
+
+// A PicrossSpecification with a grid of colors
+class Picross {
+  constructor(spec) {
+    this.spec = spec instanceof PicrossSpecification ? spec : new PicrossSpecification(spec);
+    this.grid = this.spec.rowSpecs.map(() => this.spec.colSpecs.map(() => ({color: null})));
+  }
+  setColor(i, j, c) {
+    this.grid[i][j].color = c;
+  }
+  getColor(i,j) {
+    return this.grid[i][j].color;
+  }
+  resetFromSpec() {
+    this.grid.forEach((row) => row.forEach((cell) => cell.color = null));
+  }
 }
 
 
-class Picross {
-  constructor(spec, grid=null) {
-    this.spec = spec;
-    this.height = spec.height;
-    this.width  = spec.width;
-    if (grid === null) {
-      this.grid = spec.rowSpecs.map(() => spec.colSpecs.map(() => ({ color: 0 })));
+
+class PicrossStateTracker {
+  constructor(pic) {
+    this.pic = pic;
+    this.rowTrackers = pic.spec.rowSpecs.map((r,i) => new LineTracker(r, pic.spec.colSpecs.map((_,j) => pic.grid[i][j])));
+    this.colTrackers = pic.spec.colSpecs.map((c,j) => new LineTracker(c, pic.spec.rowSpecs.map((_,i) => pic.grid[i][j])));
+    this.paint = function() {};
+  }
+  
+  setColor(i,j,c) {
+    if (c === this.pic.getColor(i,j)) { return; }
+    this.pic.setColor(i,j,c);
+    if (c === null) {
+      this.rowTrackers[i].reset();
+      this.colTrackers[j].reset();
     } else {
-      this.grid = spec.rowSpecs.map((_,i) => spec.colSpecs.map((_,j) => ({ color: grid[i][j] })));
+      this.rowTrackers[i].setColor(j,c);
+      this.colTrackers[j].setColor(i,c);
+    }
+    this.paint();
+  }
+  
+  getStatus(i, j) {
+    return {
+      code: this.statusCode(i,j),
+      score: this.score(i,j),
+      row_colors: this.rowTrackers[i].getColorScores(j),
+      col_colors: this.colTrackers[j].getColorScores(i)
+    };
+  }
+  
+  statusCode(i, j) {
+    if (this.pic.getColor(i,j) !== null) {
+      return 'solved';
+    } else {
+      const row_cc = this.rowTrackers[i].getColorCounts(j);
+      const col_cc = this.colTrackers[j].getColorCounts(i);
+      const empty  = row_cc[0] * col_cc[0];
+      const filled = row_cc[1] * col_cc[1];
+      if (empty === 0 && filled === 0) {
+        return 'error';
+      } else if (empty === 0) {
+        return 'black'
+      } else if (filled === 0) {
+        return 'white'
+      } else {
+        return 'unsolved';
+      }
     }
   }
   
-  toJSON() {
-    return JSON.stringify({
-      specification: {
-        rows: this.spec.rowSpecs,
-        cols: this.spec.rowSpecs
-      },
-      grid: this.grid.map((r)=>r.map((c)=>c.color))
-    });
+  trySolve(i,j) {
+    const code = this.statusCode(i,j);
+    if (code === 'black') this.setColor(i,j,1);
+    if (code === 'white') this.setColor(i,j,0);
   }
   
-  fromJSON() {
-    const o = JSON.parse(txt);
-    //...
+  trySolveAll() {
+    for (let i = 0; i < this.pic.spec.height; i++) {
+      for (let j = 0; j < this.pic.spec.width; j++) {
+        this.trySolve(i,j);
+      }
+    }
   }
   
+  resetFromSpec() {
+    this.pic.resetFromSpec();
+    this.rowTrackers.forEach((t)=>t.reset());
+    this.colTrackers.forEach((t)=>t.reset());
+    this.paint();
+  }
+  
+  score(i,j) {
+    const row_cs = this.rowTrackers[i].getColorScores(j);
+    const col_cs = this.colTrackers[j].getColorScores(i);
+    const empty  = row_cs[0] * col_cs[0];
+    const filled = row_cs[1] * col_cs[1];
+    return (1 + (filled-empty) / (filled+empty))/2;
+  }
 }
 
 
+class LineTracker {
+  constructor(spec, cells) {
+    this.spec = spec;
+    this.cells = cells;
+    this.size = cells.length;
+    // Initialize the sets of possibilities
+    this.possible_states = this.cells.map( () => new Set());
+    this.possible_cells  = spec.states.map(() => new Set());
+    this.reset();
+  }
+  
+  reset() {
+    // Empty posibilities
+    this.possible_cells.forEach((s) => s.clear());
+    this.possible_states.forEach((s) => s.clear());
+    // Initialise to default
+    this.cells.forEach((_,c) => this.spec.initialStates(c).forEach((s) => this.addState(c,s)));
+    // Apply already known cells
+    this.cells.forEach((cell,c) => cell.color !== null ? this.setColor(c, cell.color) : undefined);
+  }
+  
+  addState(c,s) {
+    this.possible_states[c].add(s);
+    this.possible_cells[s.i].add(c);
+  }
+  
+  removeState(c,s) {
+    this.possible_states[c].delete(s);
+    this.possible_cells[s.i].delete(c);
+  }
+  
+    // Returns the set of eligible states for the next cell, based on current possible states
+  getEligibleNextCell(c) {
+    return new Set([...this.possible_states[c]].flatMap((s)=>s.following));
+  }
+  getEligiblePrevCell(c) {
+    return new Set([...this.possible_states[c]].flatMap((s)=>s.preceding));
+  }
+  
+  nextCell(c) { return (c < this.size-1 ? c+1 : null); }
+  prevCell(c) { return (c > 0           ? c-1 : null); }
+  
+  // Updates a neighbor cell using this cell's eligibles states
+  updateNext(c) {
+    const next = this.nextCell(c);
+    if (next === null) { return; }
+    // States allowed to remain
+    const eligible_states = this.getEligibleNextCell(c);
+    //console.log("UpdateNext",c,eligible_states, this.possible_states[c]);
+    // States that must be removed
+    const toRemove = [...this.possible_states[next]].filter( (s) => !eligible_states.has(s) );
+    if (toRemove.length) {
+      toRemove.forEach((s) => this.removeState(next, s));
+      this.updateNext(next);
+    }
+  }
+  updatePrev(c) {
+    const prev = this.prevCell(c);
+    if (prev === null) { return; }
+    // States allowed to remain
+    const eligible_states = this.getEligiblePrevCell(c);
+    // States that must be removed
+    const toRemove = [...this.possible_states[prev]].filter( (s) => !eligible_states.has(s) );
+    if (toRemove.length) {
+      toRemove.forEach((s) => this.removeState(prev, s));
+      this.updatePrev(prev);
+    }
+  }
+  
+  setColor(c, color) {
+    const toRemove = [...this.possible_states[c]].filter((s)=>s.color !== color);
+    if (toRemove.length) {
+      for (const s of toRemove) { this.removeState(c, s); }
+      this.updateNext(c);
+      this.updatePrev(c);
+    }
+  }
+  
+  getColorCounts(c) {
+    const color_counts = [0,0];
+    this.possible_states[c].forEach((s)=>color_counts[s.color]++);
+    return color_counts;
+  }
+  getColorScores(c) {
+    const color_scores = [0,0];
+    this.possible_states[c].forEach((s) => color_scores[s.color] += 1.0 / this.possible_cells[s.i].size);
+    return color_scores;
+  }
+}

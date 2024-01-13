@@ -48,6 +48,15 @@ table.solved th {
   vertical-align: bottom;
 }
 
+span.spec {
+  font-weight: bold;
+  padding: 2px;
+}
+
+span.col-1 {
+  color: black;
+}
+
 .pic-row-spec {
   margin: 0px;
   padding: 2px;
