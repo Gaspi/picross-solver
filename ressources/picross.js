@@ -300,7 +300,6 @@ class LineTracker {
     if (next === null) { return; }
     // States allowed to remain
     const eligible_states = this.getEligibleNextCell(c);
-    //console.log("UpdateNext",c,eligible_states, this.possible_states[c]);
     // States that must be removed
     const toRemove = [...this.possible_states[next]].filter( (s) => !eligible_states.has(s) );
     if (toRemove.length) {
