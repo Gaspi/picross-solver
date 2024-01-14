@@ -102,7 +102,6 @@ class LineSpecification extends Paintable {
     }
   }
   
-  
   /*
   3 values: [1,1,2]
   8 states: [0, 1, 0, 1, 0, 1, 1, 0]
@@ -246,6 +245,24 @@ class PicrossStateTracker {
     const filled = row_cs[1] * col_cs[1];
     return (1 + (filled-empty) / (filled+empty))/2;
   }
+  
+  
+  
+  directImplications(i,j,c) {
+    const row_impl = this.rowTrackers[i].directImplications(j,c);
+    const col_impl = this.colTrackers[j].directImplications(i,c);
+    if (row_impl === null || col_impl === null) { return null;}
+    return row_impl.map(([cell,color])=>[i,cell,color]).concat(col_impl.map(([cell,color])=>[cell,j,color]));
+  }
+  assignmentsDirectImplications(i,j) {
+    return this.pic.grid[i][j].color === null ? [0,1].map((c) => this.directImplications(i,j,c)) : null;
+  }
+  allDirectImplications() {
+    return this.pic.grid.map((r,i) => r.map((_,j) => this.assignmentsDirectImplications(i,j)));
+  }
+  getCorneringSolver() {
+    return new CorneringSolver(this.pic, this.allDirectImplications());
+  }
 }
 
 
@@ -268,7 +285,6 @@ class LineTracker {
     this.cells.forEach((_,c) => this.spec.initialStates(c).forEach((s) => this.addState(c,s)));
     // Apply already known cells
     this.cells.forEach((cell,c) => cell.color !== null ? this.setColor(c, cell.color) : undefined);
-    
   }
   
   addState(c,s) {
@@ -342,5 +358,73 @@ class LineTracker {
     const color_scores = [0,0];
     this.possible_states[c].forEach((s) => color_scores[s.color] += ratio[s.color]);
     return color_scores;
+  }
+  
+  // Returns the cells whose color that can be deduced from the given assignment assumption
+  directImplications(cell, color) {
+    const copy = new LineTracker(this.spec, this.cells);
+    copy.setColor(cell,color);
+    const res = [];
+    for (let c=0; c < this.cells.length; c++) {
+      if (c !== cell && this.cells[c].color === null) {
+        const color_counts = copy.getColorCounts(c);
+        const total = color_counts.reduce((acc,v)=>acc+v,0);
+        if (total===0) {
+          return null;
+        } else if (color_counts[0]===total) {
+          res.push([c,0]);
+        } else if (color_counts[1]===total) {
+          res.push([c,1]);
+        }
+      }
+    }
+    return res;
+  }
+}
+
+
+class CorneringSolver {
+  constructor(pic, implications) {
+    this.pic = pic;
+    this.height = pic.spec.height;
+    this.width  = pic.spec.width;
+    this.nb_colors = 2;
+    this.keys = [];
+    this.implications = new Array(this.height*this.width*this.nb_colors);
+    for (let i = 0; i < this.height; i++) {
+      for (let j = 0; j < this.width; j++) {
+        if (this.pic.grid[i][j].color === null) {
+          for (let c = 0; c < this.nb_colors; c++) {
+            const key = this.key(i,j,c);
+            this.implications[key] = implications[i][j][c].map(([i2,j2,c2]) => this.key(i2,j2,c2));
+            this.keys.push(key);
+          }
+        }
+      }
+    }
+  }
+  
+  key(i,j,c) {
+    return (i * this.width + j) * this.nb_colors + c;
+  }
+  pos(k) { return ~~(k / this.nb_colors); }
+  i(k) { return ~~(k / (this.width * this.nb_colors)); }
+  j(k) { return this.pos(k) % this.width; }
+  c(k) { return k % this.nb_colors; }
+  triplet(k) { return [this.i(k), this.j(k), this.c(k)]; }
+  
+  twoStepsImpossible() {
+    const steps1 = this.implications.map((impl,k) => [k, ...new Set(impl)]);
+    const steps2 = steps1.map((impl)  => [...new Set(impl.flatMap((k)=>steps1[k]))]);
+    const res = [];
+    for (const k of this.keys) {
+      const impl = steps2[k].sort();
+      for (let i = 0; i < impl.length-1; i++) {
+        if (this.pos( impl[i] ) === this.pos( impl[i+1] ) ) {
+          res.push([ this.triplet(k), this.triplet(impl[i]) ] );
+        }
+      }
+    }
+    return res;
   }
 }

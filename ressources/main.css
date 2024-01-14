@@ -73,6 +73,10 @@ span.col-1 {
   text-align: center;
 }
 
+.pic-cell.highlight {
+  border: 2px solid blue;
+}
+
 .clickable {
   cursor: pointer;
 }

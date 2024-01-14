@@ -2,22 +2,29 @@
 var picross, picrossTracker;
 var table, rowSpecs, colSpecs, cells;
 
-function initRowSpec(rowSpec) {
+function initBlock(block, cellSelector) {
+  const dom = mk('span', ['spec', 'col-'+block.color]);
+  dom.innerText = block.size;
+  
+  dom.addEventListener("mouseenter" , () => cellSelector().forEach((c)=>c.classList.add('highlight')));
+  dom.addEventListener("mouseleave" , () => cellSelector().forEach((c)=>c.classList.remove('highlight')));
+  return dom;
+}
+
+function initRowSpec(rowSpec, i) {
   const dom = mk('th', ['pic-row-spec','nonclickable']);
-  dom.onclick = function() { console.log(rowSpec); };
-  rowSpec.blocks.forEach(function(block,i) {
-    if (i>0) { dom.appendChild( document.createTextNode('.') ); }
-    dom.appendChild( mk('span', ['spec', 'col-'+block.color]) ).innerText = block.size;
+  rowSpec.blocks.forEach(function(block,n) {
+    if (n>0) { dom.appendChild( document.createTextNode('.') ); }
+    dom.appendChild( initBlock(block, () => [...new Set(block.states.flatMap((s) => Array.from(picrossTracker.rowTrackers[i].possible_cells[s.i])))].map((j)=>cells[i][j]) ) );
   });
   return dom;
 }
 
-function initColSpec(colSpec) {
+function initColSpec(colSpec, j) {
   const dom = mk('th', ['pic-col-spec','nonclickable']);
-  dom.onclick = function() { console.log(colSpec); };
-  colSpec.blocks.forEach(function(block,i) {
-    if (i>0) { dom.appendChild( mk('br') ); }
-    dom.appendChild( mk('span', ['spec', 'col-'+block.color]) ).innerText = block.size;
+  colSpec.blocks.forEach(function(block,n) {
+    if (n>0) { dom.appendChild( mk('br') ); }
+    dom.appendChild( initBlock(block, () => [...new Set(block.states.flatMap((s) => Array.from(picrossTracker.colTrackers[j].possible_cells[s.i])))].map((i)=>cells[i][j]) ) );
   });
   return dom;
 }
@@ -73,6 +80,7 @@ function paint() {
         cell.innerText = "";
       } else if (picrossTracker.pic.getColor(i,j) == 0) {
         cell.style.backgroundColor = 'white';
+        cell.style.color = "black";
         cell.innerText = "-";
       } else if (status.code == 'error') {
         cell.style.backgroundColor = "red";
@@ -107,15 +115,11 @@ function pasteSpec() {
 }
 
 function load(specs) {
-//  try {
-    picross = new Picross(specs);
-    picrossTracker = new PicrossStateTracker(picross);
-    initTable();
-    get('clear').disabled = false;
-    get('solve').disabled = false;
-//  } catch (error) {
-//    alert("Could not load copied picross...");
-//  }
+  picross = new Picross(specs);
+  picrossTracker = new PicrossStateTracker(picross);
+  initTable();
+  get('clear').disabled = false;
+  get('solve').disabled = false;
 }
 
 function resetFromSpec() {
