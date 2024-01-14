@@ -176,7 +176,6 @@ class PicrossStateTracker {
     this.pic = pic;
     this.rowTrackers = pic.spec.rowSpecs.map((r,i) => new LineTracker(r, pic.spec.colSpecs.map((_,j) => pic.grid[i][j])));
     this.colTrackers = pic.spec.colSpecs.map((c,j) => new LineTracker(c, pic.spec.rowSpecs.map((_,i) => pic.grid[i][j])));
-    this.paint = function() {};
   }
   
   setColor(i,j,c) {
@@ -189,7 +188,6 @@ class PicrossStateTracker {
       this.rowTrackers[i].setColor(j,c);
       this.colTrackers[j].setColor(i,c);
     }
-    this.paint();
   }
   
   getStatus(i, j) {
@@ -239,7 +237,6 @@ class PicrossStateTracker {
     this.pic.resetFromSpec();
     this.rowTrackers.forEach((t)=>t.reset());
     this.colTrackers.forEach((t)=>t.reset());
-    this.paint();
   }
   
   score(i,j) {
@@ -271,6 +268,7 @@ class LineTracker {
     this.cells.forEach((_,c) => this.spec.initialStates(c).forEach((s) => this.addState(c,s)));
     // Apply already known cells
     this.cells.forEach((cell,c) => cell.color !== null ? this.setColor(c, cell.color) : undefined);
+    
   }
   
   addState(c,s) {
@@ -335,8 +333,14 @@ class LineTracker {
     return color_counts;
   }
   getColorScores(c) {
+    const possible = [0,0];
+    this.spec.states.forEach((s) => possible[ s.color ] += this.possible_cells[s.i].size);
+    const actual = [0,0];
+    this.spec.states.forEach((s) => actual[s.color] += 1);
+    actual[0] = this.size - actual[1];
+    const ratio = [ actual[0]/possible[0], actual[1]/possible[1] ];
     const color_scores = [0,0];
-    this.possible_states[c].forEach((s) => color_scores[s.color] += 1.0 / this.possible_cells[s.i].size);
+    this.possible_states[c].forEach((s) => color_scores[s.color] += ratio[s.color]);
     return color_scores;
   }
 }
