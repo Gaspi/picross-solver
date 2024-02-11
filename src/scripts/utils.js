@@ -1,6 +1,4 @@
 
-
-
 function get(id) { return document.getElementById(id);}
 
 function mk(elt, classes=[], innerText) {
@@ -29,7 +27,6 @@ function arr(length, fill=null) {
   return res;
 }
 
-
 function Paintable() {
   const painters = new Set();
   const self = this;
@@ -41,4 +38,3 @@ function Paintable() {
   this.deletePainter = function(p) { painters.delete(p); };
   this.clearPainters = function(p) { painters.clear();   };
 }
-

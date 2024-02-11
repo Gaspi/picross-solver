@@ -118,12 +118,15 @@ function load(specs) {
   picross = new Picross(specs);
   picrossTracker = new PicrossStateTracker(picross);
   initTable();
+  SVG_init();
   get('clear').disabled = false;
   get('solve').disabled = false;
+  get('corne').disabled = false;
 }
 
 function resetFromSpec() {
   picrossTracker.resetFromSpec();
+  SVG_clear();
   paint();
 }
 
@@ -132,12 +135,75 @@ function solve() {
   paint();
 }
 
+
+var cornerings = null;
+function cornering() {
+  if (cornerings !== null) {
+    SVG_clear();
+    cornerings = null;
+  } else {
+    const corn = picrossTracker.getCorneringSolver().twoStepsImpossible();
+    cornerings = corn.forEach( function ([ [i,j,c], [ti,tj,_]]) {
+      return drawArrow(i,j,ti,tj,c);
+    });
+  }
+}
+
+
+const svg = document.body.appendChild( document.createElementNS("http://www.w3.org/2000/svg", "svg") );
+const g = svg.appendChild( document.createElementNS("http://www.w3.org/2000/svg", "g") );
+const svg_content = [];
+
+function SVG_draw(type) {
+  const e = document.createElementNS("http://www.w3.org/2000/svg", type);
+  svg_content.push(e);
+  return g.appendChild(e);
+}
+function SVG_clear() {
+  svg_content.forEach((e)=>g.removeChild(e));
+  svg_content.length = 0
+}
+
+
+var cell_height, cell_width;
+
+function SVG_init() {
+  SVG_clear();
+  const cell_rect = cells[0][0].getBoundingClientRect();
+  cell_height = cell_rect.height;
+  cell_width  = cell_rect.width;
+  svg.setAttribute('height', (cell_height * picross.spec.height)+"px");
+  svg.setAttribute('width' , (cell_width  * picross.spec.width )+"px");
+  svg.style = `position:absolute; top: ${cell_rect.top}px; left: ${cell_rect.left}px; pointer-events: none;`;
+}
+
+function drawArrow(i,j, ti, tj, c) {
+  const path = SVG_draw("path");
+  path.setAttribute('d', `M${(j+0.5)*cell_width},${(i+0.5)*cell_height} L${(tj+0.5)*cell_width},${(ti+0.5)*cell_height}`);
+  path.setAttribute('style', `stroke: ${c === 1 ? 'red' : 'green'}; stroke-width: 1.25px; fill: none; marker-end: url(#arrow);`);
+  return path;
+}
+
+
 // Loading examples
 window.onload = function() {
   const req = new XMLHttpRequest();
   req.addEventListener("load", function() {
     req.response.split(/\r?\n/).filter((t)=>t.length).forEach(loadExample);
   });
-  req.open("GET", "./ressources/examples.csv");
+  req.open("GET", "./static/examples.csv");
   req.send();
+  
+  const defs = g.appendChild( document.createElementNS("http://www.w3.org/2000/svg", "defs") );
+  const marker = defs.appendChild( document.createElementNS("http://www.w3.org/2000/svg", "marker") );
+  marker.setAttribute('id', 'arrow');
+  marker.setAttribute('viewBox', '0 0 10 10');
+  marker.setAttribute('markerWidth', '6');
+  marker.setAttribute('markerHeight', '6');
+  marker.setAttribute('refx', '5');
+  marker.setAttribute('refy', '5');
+  marker.setAttribute('orient', 'auto-start-reverse');
+  const path = marker.appendChild( document.createElementNS("http://www.w3.org/2000/svg", "path") );
+  path.setAttribute('d', 'M 0 0 L 10 5 L 0 10 z');
+  path.setAttribute('style', "fill:red;");
 }
