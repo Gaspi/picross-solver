@@ -1,7 +1,7 @@
 
-function get(id) { return document.getElementById(id);}
+export function get(id) { return document.getElementById(id);}
 
-function mk(elt, classes=[], innerText) {
+export function mk(elt, classes=[], innerText) {
   const res = document.createElement(elt);
   res.classList.add(...classes);
   if (innerText) {
@@ -10,14 +10,14 @@ function mk(elt, classes=[], innerText) {
   return res;
 }
 
-function wipe(node) {
+export function wipe(node) {
   while (node.firstChild) {
     node.removeChild(node.lastChild);
   }
   return node;
 }
 
-function arr(length, fill=null) {
+export function arr(length, fill=null) {
   const res = new Array(length);
   if (fill) {
     for (let i = 0; i < length; i++) {
@@ -27,7 +27,7 @@ function arr(length, fill=null) {
   return res;
 }
 
-function Paintable() {
+export function Paintable() {
   const painters = new Set();
   const self = this;
   this.paint         = function()  { painters.forEach((p)=>p.paint(self)); };

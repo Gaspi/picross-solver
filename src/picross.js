@@ -1,5 +1,6 @@
+import { Paintable } from './utils.js';
 
-class State {
+export class State {
   constructor(i, block) {
     this.i = i; // Index of the state in the line
     if (block) {
@@ -7,23 +8,23 @@ class State {
       block.states.push(this);
     }
     this.color = block ? block.color : 0;
-    
+
     this.preceding = (this.color > 0 ? [] : [this]); // One of these states must be preceding this one
     this.following = (this.color > 0 ? [] : [this]); // One of these states must be following this one
     this.next = null;
     this.prev = null;
   }
-  
+
   toString() {
     return (this.color ? '#' : '.') + this.i;
   }
-  
+
   setNext(state=null) {
     this.next = state;
     this.following.push(state);
     return this;
   }
-  
+
   setPrev(state=null) {
     this.prev = state;
     this.preceding.push(state);
@@ -31,7 +32,7 @@ class State {
   }
 }
 
-class BlockSpecification {
+export class BlockSpecification {
   constructor(txt) {
     const s = txt.split(/\|/);
     this.size = parseInt(s[0]);
@@ -47,23 +48,23 @@ class BlockSpecification {
 }
 
 
-class LineSpecification extends Paintable {
+export class LineSpecification extends Paintable {
   constructor(txt, size=null) {
     super();
     this.size = size;
     this.setBlocks( txt.split(/\./).filter((x)=>x.length).map((x)=>new BlockSpecification(x)) );
   }
-  
+
   toString() {
     return this.blocks.join('.');
   }
-  
+
   setSize(size) {
     this.size = size;
     this.checkSize();
     return this;
   }
-  
+
   setBlocks(blocks) {
     const states = new Array();
     // Setting states color
@@ -78,10 +79,10 @@ class LineSpecification extends Paintable {
       }
     }
     states.push( new State(states.length) );
-    
+
     this.minSize = blocks.length ? states.length-2 : 0;
     this.checkSize();
-    
+
     // Setting next and previous states
     for (let i = 1; i < states.length; i++) {
       states[i  ].setPrev( states[i-1] );
@@ -95,13 +96,13 @@ class LineSpecification extends Paintable {
     this.paint();
     return this;
   }
-  
+
   checkSize() {
     if (this.size && this.minSize > this.size) {
       throw new Error(`Specification doesn't fit! (min size of ${this.minSize} > ${this.size})`);
     }
   }
-  
+
   /*
   3 values: [1,1,2]
   8 states: [0, 1, 0, 1, 0, 1, 1, 0]
@@ -134,7 +135,7 @@ class LineSpecification extends Paintable {
 
 
 // A pair of LineSpecifications
-class PicrossSpecification {
+export class PicrossSpecification {
   constructor(txt) {
     const s = txt.split(";");
     this.title = (s.length > 2 && s[0].length) ? s[0] : null;
@@ -145,14 +146,14 @@ class PicrossSpecification {
     this.rowSpecs.forEach( (spec)=>spec.setSize(this.width ) );
     this.colSpecs.forEach( (spec)=>spec.setSize(this.height) );
   }
-  
+
   toString() {
     return `${this.title||''};${this.rowSpecs.join(',')};${this.colSpecs.join(',')}`;
   }
 }
 
 // A PicrossSpecification with a grid of colors
-class Picross {
+export class Picross {
   constructor(spec) {
     this.spec = spec instanceof PicrossSpecification ? spec : new PicrossSpecification(spec);
     this.grid = this.spec.rowSpecs.map(() => this.spec.colSpecs.map(() => ({color: null})));
@@ -170,13 +171,13 @@ class Picross {
 
 
 
-class PicrossStateTracker {
+export class PicrossStateTracker {
   constructor(pic) {
     this.pic = pic;
     this.rowTrackers = pic.spec.rowSpecs.map((r,i) => new LineTracker(r, pic.spec.colSpecs.map((_,j) => pic.grid[i][j])));
     this.colTrackers = pic.spec.colSpecs.map((c,j) => new LineTracker(c, pic.spec.rowSpecs.map((_,i) => pic.grid[i][j])));
   }
-  
+
   setColor(i,j,c) {
     if (c === this.pic.getColor(i,j)) { return; }
     this.pic.setColor(i,j,c);
@@ -188,7 +189,7 @@ class PicrossStateTracker {
       this.colTrackers[j].setColor(i,c);
     }
   }
-  
+
   getStatus(i, j) {
     return {
       code: this.statusCode(i,j),
@@ -197,7 +198,7 @@ class PicrossStateTracker {
       col_colors: this.colTrackers[j].getColorScores(i)
     };
   }
-  
+
   statusCode(i, j) {
     if (this.pic.getColor(i,j) !== null) {
       return 'solved';
@@ -217,13 +218,13 @@ class PicrossStateTracker {
       }
     }
   }
-  
+
   trySolve(i,j) {
     const code = this.statusCode(i,j);
     if (code === 'black') this.setColor(i,j,1);
     if (code === 'white') this.setColor(i,j,0);
   }
-  
+
   trySolveAll() {
     for (let i = 0; i < this.pic.spec.height; i++) {
       for (let j = 0; j < this.pic.spec.width; j++) {
@@ -231,13 +232,13 @@ class PicrossStateTracker {
       }
     }
   }
-  
+
   resetFromSpec() {
     this.pic.resetFromSpec();
     this.rowTrackers.forEach((t)=>t.reset());
     this.colTrackers.forEach((t)=>t.reset());
   }
-  
+
   score(i,j) {
     const row_cs = this.rowTrackers[i].getColorScores(j);
     const col_cs = this.colTrackers[j].getColorScores(i);
@@ -245,9 +246,9 @@ class PicrossStateTracker {
     const filled = row_cs[1] * col_cs[1];
     return (1 + (filled-empty) / (filled+empty))/2;
   }
-  
-  
-  
+
+
+
   directImplications(i,j,c) {
     const row_impl = this.rowTrackers[i].directImplications(j,c);
     const col_impl = this.colTrackers[j].directImplications(i,c);
@@ -266,7 +267,7 @@ class PicrossStateTracker {
 }
 
 
-class LineTracker {
+export class LineTracker {
   constructor(spec, cells) {
     this.spec = spec;
     this.cells = cells;
@@ -276,7 +277,7 @@ class LineTracker {
     this.possible_cells  = spec.states.map(() => new Set());
     this.reset();
   }
-  
+
   reset() {
     // Empty posibilities
     this.possible_cells.forEach((s) => s.clear());
@@ -286,17 +287,17 @@ class LineTracker {
     // Apply already known cells
     this.cells.forEach((cell,c) => cell.color !== null ? this.setColor(c, cell.color) : undefined);
   }
-  
+
   addState(c,s) {
     this.possible_states[c].add(s);
     this.possible_cells[s.i].add(c);
   }
-  
+
   removeState(c,s) {
     this.possible_states[c].delete(s);
     this.possible_cells[s.i].delete(c);
   }
-  
+
     // Returns the set of eligible states for the next cell, based on current possible states
   getEligibleNextCell(c) {
     return new Set([...this.possible_states[c]].flatMap((s)=>s.following));
@@ -304,10 +305,10 @@ class LineTracker {
   getEligiblePrevCell(c) {
     return new Set([...this.possible_states[c]].flatMap((s)=>s.preceding));
   }
-  
+
   nextCell(c) { return (c < this.size-1 ? c+1 : null); }
   prevCell(c) { return (c > 0           ? c-1 : null); }
-  
+
   // Updates a neighbor cell using this cell's eligibles states
   updateNext(c) {
     const next = this.nextCell(c);
@@ -333,7 +334,7 @@ class LineTracker {
       this.updatePrev(prev);
     }
   }
-  
+
   setColor(c, color) {
     const toRemove = [...this.possible_states[c]].filter((s)=>s.color !== color);
     if (toRemove.length) {
@@ -342,7 +343,7 @@ class LineTracker {
       this.updatePrev(c);
     }
   }
-  
+
   getColorCounts(c) {
     const color_counts = [0,0];
     this.possible_states[c].forEach((s)=>color_counts[s.color]++);
@@ -359,7 +360,7 @@ class LineTracker {
     this.possible_states[c].forEach((s) => color_scores[s.color] += ratio[s.color]);
     return color_scores;
   }
-  
+
   // Returns the cells whose color that can be deduced from the given assignment assumption
   directImplications(cell, color) {
     const copy = new LineTracker(this.spec, this.cells);
@@ -383,7 +384,7 @@ class LineTracker {
 }
 
 
-class CorneringSolver {
+export class CorneringSolver {
   constructor(pic, implications) {
     this.pic = pic;
     this.height = pic.spec.height;
@@ -403,7 +404,7 @@ class CorneringSolver {
       }
     }
   }
-  
+
   key(i,j,c) {
     return (i * this.width + j) * this.nb_colors + c;
   }
@@ -412,7 +413,7 @@ class CorneringSolver {
   j(k) { return this.pos(k) % this.width; }
   c(k) { return k % this.nb_colors; }
   triplet(k) { return [this.i(k), this.j(k), this.c(k)]; }
-  
+
   twoStepsImpossible() {
     const steps1 = this.implications.map((impl,k) => [k, ...new Set(impl)]);
     const steps2 = steps1.map((impl)  => [...new Set(impl.flatMap((k)=>steps1[k]))]);

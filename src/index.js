@@ -1,3 +1,7 @@
+import { get, mk, wipe  } from './utils.js';
+import { Picross, PicrossStateTracker } from './picross.js';
+import {} from './editor.js';
+
 
 var picross, picrossTracker;
 var table, rowSpecs, colSpecs, cells;
@@ -5,7 +9,7 @@ var table, rowSpecs, colSpecs, cells;
 function initBlock(block, cellSelector) {
   const dom = mk('span', ['spec', 'col-'+block.color]);
   dom.innerText = block.size;
-  
+
   dom.addEventListener("mouseenter" , () => cellSelector().forEach((c)=>c.classList.add('highlight')));
   dom.addEventListener("mouseleave" , () => cellSelector().forEach((c)=>c.classList.remove('highlight')));
   return dom;
@@ -56,7 +60,7 @@ function initTable() {
   rowSpecs = picross.spec.rowSpecs.map(initRowSpec);
   colSpecs = picross.spec.colSpecs.map(initColSpec);
   cells = picross.spec.rowSpecs.map((_,i) => picross.spec.colSpecs.map((c,j) => initCell(i,j)));
-  
+
   // Populating table
   const specRow = table.appendChild( mk('tr',['pic-row']) );
   specRow.appendChild( mk('th',['pic-corner']) );
@@ -187,13 +191,18 @@ function drawArrow(i,j, ti, tj, c) {
 
 // Loading examples
 window.onload = function() {
+  get("paste").addEventListener("click", pasteSpec);
+  get("clear").addEventListener("click", resetFromSpec);
+  get("solve").addEventListener("click", solve);
+  get("corne").addEventListener("click", cornering);
+
   const req = new XMLHttpRequest();
   req.addEventListener("load", function() {
     req.response.split(/\r?\n/).filter((t)=>t.length).forEach(loadExample);
   });
   req.open("GET", "./static/examples.csv");
   req.send();
-  
+
   const defs = g.appendChild( document.createElementNS("http://www.w3.org/2000/svg", "defs") );
   const marker = defs.appendChild( document.createElementNS("http://www.w3.org/2000/svg", "marker") );
   marker.setAttribute('id', 'arrow');
