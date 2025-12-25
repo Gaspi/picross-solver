@@ -1,3 +1,4 @@
+import { get, mk, wipe  } from './utils.js';
 
 function spec(row) {
   const res = new Array();
@@ -54,7 +55,7 @@ function initPicross(height, width) {
   rows = new Array(height);
   cols = new Array(width);
   cells = new Array(height).fill(0).map(()=>new Array(width));
-  
+
   const pic = wipe( get('picross') );
   const specRow = pic.appendChild( mk('tr',['pic-row']) );
   specRow.appendChild( mk('th',['pic-corner']) );
@@ -105,4 +106,12 @@ function pastePicross() {
 function copySpec() {
   const txt = `copied;${picross.rows.map((x)=>spec(x).join('.')).join(',')};${picross.cols.map((x)=>spec(x).join('.')).join(',')}`;
   navigator.clipboard.writeText(txt).then(alert("Copied"));
+}
+
+window.onload = function() {
+  get("newpicross").addEventListener("click", newPicross);
+  get("copy").addEventListener("click", copyPicross);
+  get("paste").addEventListener("click", pastePicross);
+  get("copyspec").addEventListener("click", copySpec);
+
 }

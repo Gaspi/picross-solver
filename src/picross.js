@@ -247,8 +247,6 @@ export class PicrossStateTracker {
     return (1 + (filled-empty) / (filled+empty))/2;
   }
 
-
-
   directImplications(i,j,c) {
     const row_impl = this.rowTrackers[i].directImplications(j,c);
     const col_impl = this.colTrackers[j].directImplications(i,c);
@@ -397,8 +395,10 @@ export class CorneringSolver {
         if (this.pic.grid[i][j].color === null) {
           for (let c = 0; c < this.nb_colors; c++) {
             const key = this.key(i,j,c);
-            this.implications[key] = implications[i][j][c].map(([i2,j2,c2]) => this.key(i2,j2,c2));
-            this.keys.push(key);
+            if (implications[i][j][c] !== null) {
+              this.keys.push(key);
+              this.implications[key] = implications[i][j][c].map(([i2,j2,c2]) => this.key(i2,j2,c2));
+            }
           }
         }
       }
@@ -428,4 +428,6 @@ export class CorneringSolver {
     }
     return res;
   }
+
+
 }

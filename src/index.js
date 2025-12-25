@@ -1,8 +1,8 @@
 import { get, mk, wipe  } from './utils.js';
 import { Picross, PicrossStateTracker } from './picross.js';
-import {} from './editor.js';
+import { SVGDrawer } from './SVGDrawer.js';
 
-
+var svgdrawer;
 var picross, picrossTracker;
 var table, rowSpecs, colSpecs, cells;
 
@@ -122,15 +122,17 @@ function load(specs) {
   picross = new Picross(specs);
   picrossTracker = new PicrossStateTracker(picross);
   initTable();
-  SVG_init();
+  svgdrawer.init(picross, cells[0][0].getBoundingClientRect());
   get('clear').disabled = false;
   get('solve').disabled = false;
-  get('corne').disabled = false;
+  get('compute_cornering').disabled = false;
+  get('clear_cornering').disabled = false;
+  get('auto_cornering').disabled = false;
 }
 
 function resetFromSpec() {
   picrossTracker.resetFromSpec();
-  SVG_clear();
+  svgdrawer.clear();
   paint();
 }
 
@@ -139,62 +141,25 @@ function solve() {
   paint();
 }
 
+function enableAutoCornering() {
+  // TODO
+}
 
-var cornerings = null;
-function cornering() {
-  if (cornerings !== null) {
-    SVG_clear();
-    cornerings = null;
-  } else {
-    const corn = picrossTracker.getCorneringSolver().twoStepsImpossible();
-    cornerings = corn.forEach( function ([ [i,j,c], [ti,tj,_]]) {
-      return drawArrow(i,j,ti,tj,c);
-    });
-  }
+function disableAutoCornering() {
+  // TODO
 }
 
 
-const svg = document.body.appendChild( document.createElementNS("http://www.w3.org/2000/svg", "svg") );
-const g = svg.appendChild( document.createElementNS("http://www.w3.org/2000/svg", "g") );
-const svg_content = [];
-
-function SVG_draw(type) {
-  const e = document.createElementNS("http://www.w3.org/2000/svg", type);
-  svg_content.push(e);
-  return g.appendChild(e);
-}
-function SVG_clear() {
-  svg_content.forEach((e)=>g.removeChild(e));
-  svg_content.length = 0
-}
-
-
-var cell_height, cell_width;
-
-function SVG_init() {
-  SVG_clear();
-  const cell_rect = cells[0][0].getBoundingClientRect();
-  cell_height = cell_rect.height;
-  cell_width  = cell_rect.width;
-  svg.setAttribute('height', (cell_height * picross.spec.height)+"px");
-  svg.setAttribute('width' , (cell_width  * picross.spec.width )+"px");
-  svg.style = `position:absolute; top: ${cell_rect.top}px; left: ${cell_rect.left}px; pointer-events: none;`;
-}
-
-function drawArrow(i,j, ti, tj, c) {
-  const path = SVG_draw("path");
-  path.setAttribute('d', `M${(j+0.5)*cell_width},${(i+0.5)*cell_height} L${(tj+0.5)*cell_width},${(ti+0.5)*cell_height}`);
-  path.setAttribute('style', `stroke: ${c === 1 ? 'red' : 'green'}; stroke-width: 1.25px; fill: none; marker-end: url(#arrow);`);
-  return path;
-}
-
-
-// Loading examples
 window.onload = function() {
+  svgdrawer = new SVGDrawer(document.body);
+
   get("paste").addEventListener("click", pasteSpec);
   get("clear").addEventListener("click", resetFromSpec);
   get("solve").addEventListener("click", solve);
-  get("corne").addEventListener("click", cornering);
+  get("compute_cornering").addEventListener("click", () => svgdrawer.drawCorneringSolver( picrossTracker.getCorneringSolver() ) );
+  get("clear_cornering").addEventListener("click", () => svgdrawer.clear());
+  const auto_cornering = get("auto_cornering");
+  auto_cornering.addEventListener("change", () => auto_cornering.checked ? enableAutoCornering() : disableAutoCornering());
 
   const req = new XMLHttpRequest();
   req.addEventListener("load", function() {
@@ -202,17 +167,4 @@ window.onload = function() {
   });
   req.open("GET", "./static/examples.csv");
   req.send();
-
-  const defs = g.appendChild( document.createElementNS("http://www.w3.org/2000/svg", "defs") );
-  const marker = defs.appendChild( document.createElementNS("http://www.w3.org/2000/svg", "marker") );
-  marker.setAttribute('id', 'arrow');
-  marker.setAttribute('viewBox', '0 0 10 10');
-  marker.setAttribute('markerWidth', '6');
-  marker.setAttribute('markerHeight', '6');
-  marker.setAttribute('refx', '5');
-  marker.setAttribute('refy', '5');
-  marker.setAttribute('orient', 'auto-start-reverse');
-  const path = marker.appendChild( document.createElementNS("http://www.w3.org/2000/svg", "path") );
-  path.setAttribute('d', 'M 0 0 L 10 5 L 0 10 z');
-  path.setAttribute('style', "fill:red;");
 }

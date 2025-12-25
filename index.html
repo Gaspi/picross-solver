@@ -24,7 +24,25 @@
       <button class="btn btn-success me-auto" id="paste" type="button"         > Paste     </button>
       <button class="btn btn-primary me-3"    id="clear" type="button" disabled> Clear     </button>
       <button class="btn btn-success me-3"    id="solve" type="button" disabled> Solve     </button>
-      <button class="btn btn-success"         id="corne" type="button" disabled> Cornering </button>
+      <div class="dropdown">
+        <button class="btn btn-success dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+          Cornering
+        </button>
+        <ul class="dropdown-menu p-2">
+          <li>
+            <button class="dropdown-item w-100 mb-1" id="clear_cornering" disabled> Clear cornering </button>
+          </li>
+          <li>
+            <button class="dropdown-item w-100 mb-1" id="compute_cornering" disabled> Compute cornering </button>
+          </li>
+          <li>
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="auto_cornering" disabled>
+              <label class="form-check-label" for="auto_cornering"> Auto cornering </label>
+            </div>
+          </li>
+        </ul>
+      </div>
     </div>
   </nav>
   <div class="container-xxl">

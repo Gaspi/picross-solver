@@ -1,4 +1,4 @@
-import { Picross } from './picross.js'
+import { Picross, CorneringSolver } from './picross.js'
 
 export class SVGDrawer {
   svg: SVGElement;
@@ -9,6 +9,7 @@ export class SVGDrawer {
 
   constructor(container: HTMLElement = document.body) {
     this.svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    if (container) { container.appendChild(this.svg); }
     this.g = this.svg.appendChild( document.createElementNS("http://www.w3.org/2000/svg", "g") );
     // Elements from g that should be removed on clear (arrows)
     this.svg_content = [];
@@ -52,5 +53,12 @@ export class SVGDrawer {
     path.setAttribute('d', `M${(j+0.5)*this.cell_width},${(i+0.5)*this.cell_height} L${(tj+0.5)*this.cell_width},${(ti+0.5)*this.cell_height}`);
     path.setAttribute('style', `stroke: ${c === 1 ? 'red' : 'green'}; stroke-width: 1.25px; fill: none; marker-end: url(#arrow);`);
     return path;
+  }
+
+  drawCorneringSolver(corneringSolver: CorneringSolver) {
+    this.clear();
+    return corneringSolver.twoStepsImpossible().forEach(
+      ([ [i,j,c], [ti,tj,_]]) => this.drawArrow(i,j,ti,tj,c)
+    );
   }
 }
