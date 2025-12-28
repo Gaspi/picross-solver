@@ -1,58 +1,9 @@
-import { Paintable } from './utils.js';
+import { State, StateBlockSpecification } from './StatePicross.js';
 
-export class State {
-  constructor(i, block) {
-    this.i = i; // Index of the state in the line
-    if (block) {
-      this.block = block;
-      block.states.push(this);
-    }
-    this.color = block ? block.color : 0;
-
-    this.preceding = (this.color > 0 ? [] : [this]); // One of these states must be preceding this one
-    this.following = (this.color > 0 ? [] : [this]); // One of these states must be following this one
-    this.next = null;
-    this.prev = null;
-  }
-
-  toString() {
-    return (this.color ? '#' : '.') + this.i;
-  }
-
-  setNext(state=null) {
-    this.next = state;
-    this.following.push(state);
-    return this;
-  }
-
-  setPrev(state=null) {
-    this.prev = state;
-    this.preceding.push(state);
-    return this;
-  }
-}
-
-export class BlockSpecification {
-  constructor(txt) {
-    const s = txt.split(/\|/);
-    this.size = parseInt(s[0]);
-    this.color = s.length > 1 ? parseInt(s[1]) : 1;
-    if (!(this.size>0 && this.color>0)) {
-      throw new Error(`Could not parse [${txt}] into a specification block`);
-    }
-    this.states = [];
-  }
-  toString() {
-    return this.size + (this.color === 1 ? '' : '|'+this.color);
-  }
-}
-
-
-export class LineSpecification extends Paintable {
+export class LineSpecification {
   constructor(txt, size=null) {
-    super();
     this.size = size;
-    this.setBlocks( txt.split(/\./).filter((x)=>x.length).map((x)=>new BlockSpecification(x)) );
+    this.setBlocks( txt.split(/\./).filter((x)=>x.length).map((x)=>new StateBlockSpecification(x)) );
   }
 
   toString() {
@@ -93,7 +44,6 @@ export class LineSpecification extends Paintable {
     this.blocks = blocks;
     this.states = states;
     this.nbStates = states.length;
-    this.paint();
     return this;
   }
 
@@ -428,6 +378,5 @@ export class CorneringSolver {
     }
     return res;
   }
-
 
 }

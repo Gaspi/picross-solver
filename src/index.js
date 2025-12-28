@@ -43,10 +43,10 @@ function initCell(i,j) {
       if (score <  1) { score = "<1"; }
       status.code = "unsolved ("+score+"% black)";
     }
-    get('logs').innerHTML = `<h4>Status: ${status.code}</h3>
-      <h5>Row ${i+1}:</h4>
+    get('logs').innerHTML = `<h4>Status: ${status.code}</h4>
+      <h5>Row ${i+1}:</h5>
         <p> <b>Black:</b> ${status.row_colors[1]} <b> / White:</b> ${status.row_colors[0]} </p>
-      <h5>Col ${j+1}:</h4>
+      <h5>Col ${j+1}:</h5>
         <p> <b>Black:</b> ${status.col_colors[1]} <b> / White:</b> ${status.col_colors[0]} </p>`;
   });
   dom.addEventListener("click"      , (e) => { e.preventDefault(); picrossTracker.setColor(i,j,1   ); paint(); });
@@ -76,6 +76,10 @@ function initTable() {
 }
 
 function paint() {
+  if (get("auto_cornering").checked) {
+    svgdrawer.clear();
+    svgdrawer.drawCorneringSolver( picrossTracker.getCorneringSolver() );
+  }
   cells.forEach(function(row,i) {
     row.forEach(function(cell,j) {
       const status = picrossTracker.getStatus(i,j);

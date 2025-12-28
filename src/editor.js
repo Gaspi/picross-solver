@@ -114,4 +114,8 @@ window.onload = function() {
   get("paste").addEventListener("click", pastePicross);
   get("copyspec").addEventListener("click", copySpec);
 
+  const field_x = get("field-x");
+  field_x.addEventListener("change", function () { get('dim-x').innerText = field_x.value; });
+  const field_y = get("field-y");
+  field_y.addEventListener("change", function () { get('dim-y').innerText = field_y.value; });
 }

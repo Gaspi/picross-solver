@@ -21,8 +21,8 @@
       </button>
       <div class="btn-group me-auto" role="group">
         <span class="input-group-text">Dimensions</span>
-        <input type="text" aria-label="Height" placeholder="Height of the picross" value="10" class="form-control" onchange="get('dim-x').innerText = this.value;">
-        <input type="text" aria-label="Width"  placeholder="Width of the picross"  value="15" class="form-control" onchange="get('dim-y').innerText = this.value;">
+        <input id="field-x" type="text" aria-label="Height" placeholder="Height of the picross" value="10" class="form-control">
+        <input id="field-y" type="text" aria-label="Width"  placeholder="Width of the picross"  value="15" class="form-control">
       </div>
       <button id="copy"     class="btn btn-success me-3" type="button" disabled> Copy                  </button>
       <button id="paste"    class="btn btn-primary me-3" type="button"         > Paste                 </button>
