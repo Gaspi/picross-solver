@@ -1,4 +1,5 @@
-import { Picross, CorneringSolver } from './picross.js'
+import { Picross } from './StatePicross.js'
+import { CorneringSolver } from './PicrossSolver.js'
 
 export class SVGDrawer {
   svg: SVGElement;

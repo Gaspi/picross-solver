@@ -1,134 +1,28 @@
-import { State, StateBlockSpecification } from './StatePicross.js';
+import { State, LineStates, Picross, Cell } from './StatePicross.js';
 
-export class LineSpecification {
-  constructor(txt, size=null) {
-    this.size = size;
-    this.setBlocks( txt.split(/\./).filter((x)=>x.length).map((x)=>new StateBlockSpecification(x)) );
-  }
-
-  toString() {
-    return this.blocks.join('.');
-  }
-
-  setSize(size) {
-    this.size = size;
-    this.checkSize();
-    return this;
-  }
-
-  setBlocks(blocks) {
-    const states = new Array();
-    // Setting states color
-    let prev_color = null;
-    for (const block of blocks) {
-      if (prev_color === null || block.color === prev_color) {
-        states.push( new State(states.length) );
-      }
-      prev_color = block.color;
-      for (let i = 0; i < block.size; i++) {
-        states.push( new State(states.length, block) );
-      }
-    }
-    states.push( new State(states.length) );
-
-    this.minSize = blocks.length ? states.length-2 : 0;
-    this.checkSize();
-
-    // Setting next and previous states
-    for (let i = 1; i < states.length; i++) {
-      states[i  ].setPrev( states[i-1] );
-      states[i-1].setNext( states[i  ] );
-    }
-    // Setting index
-    states.forEach((s,i)=>s.i=i);
-    this.blocks = blocks;
-    this.states = states;
-    this.nbStates = states.length;
-    return this;
-  }
-
-  checkSize() {
-    if (this.size && this.minSize > this.size) {
-      throw new Error(`Specification doesn't fit! (min size of ${this.minSize} > ${this.size})`);
-    }
-  }
-
-  /*
-  3 values: [1,1,2]
-  8 states: [0, 1, 0, 1, 0, 1, 1, 0]
-  size = 10
-  i
-  0-  0,1
-  1-  0,1,2
-  2-  0,1,2,3
-  3-  0,1,2,3,4
-  4-    1,2,3,4,5
-  5-      2,3,4,5,6
-  6-        3,4,5,6,7
-  7-          4,5,6,7
-  8-            5,6,7
-  9-              6,7
-  */
-  // Returns the set of all states initially possible at position {i} in the line of size
-  initialStates(i) {
-    // (size-i-1) cells remain after cell i
-    // min + (size-i-1) >= minSize = nbState-2
-    const min = Math.max(0, this.nbStates - this.size + i - 1);
-    // max <= i + 1
-    const max = Math.min(this.nbStates-1, i + 1);
-    if (max < min) {
-      throw new Error(`Specification ${this} too long for line of size ${this.size} : [${i}; ${min}, ${max}]`);
-    }
-    return new Set(this.states.slice(min, max+1));
+export class Implication {
+  i: number;
+  j: number;
+  color: number;
+  constructor(i: number, j: number, color: number) {
+    this.i = i;
+    this.j = j;
+    this.color = color;
   }
 }
-
-
-// A pair of LineSpecifications
-export class PicrossSpecification {
-  constructor(txt) {
-    const s = txt.split(";");
-    this.title = (s.length > 2 && s[0].length) ? s[0] : null;
-    this.rowSpecs = s[ s.length > 2 ? 1 : 0 ].split(',').map((s)=>new LineSpecification(s));
-    this.colSpecs = s[ s.length > 2 ? 2 : 1 ].split(',').map((s)=>new LineSpecification(s));
-    this.height= this.rowSpecs.length;
-    this.width = this.colSpecs.length;
-    this.rowSpecs.forEach( (spec)=>spec.setSize(this.width ) );
-    this.colSpecs.forEach( (spec)=>spec.setSize(this.height) );
-  }
-
-  toString() {
-    return `${this.title||''};${this.rowSpecs.join(',')};${this.colSpecs.join(',')}`;
-  }
-}
-
-// A PicrossSpecification with a grid of colors
-export class Picross {
-  constructor(spec) {
-    this.spec = spec instanceof PicrossSpecification ? spec : new PicrossSpecification(spec);
-    this.grid = this.spec.rowSpecs.map(() => this.spec.colSpecs.map(() => ({color: null})));
-  }
-  setColor(i, j, c) {
-    this.grid[i][j].color = c;
-  }
-  getColor(i,j) {
-    return this.grid[i][j].color;
-  }
-  resetFromSpec() {
-    this.grid.forEach((row) => row.forEach((cell) => cell.color = null));
-  }
-}
-
-
 
 export class PicrossStateTracker {
-  constructor(pic) {
+  pic: Picross;
+  rowTrackers: LineTracker[];
+  colTrackers: LineTracker[];
+
+  constructor(pic: Picross) {
     this.pic = pic;
     this.rowTrackers = pic.spec.rowSpecs.map((r,i) => new LineTracker(r, pic.spec.colSpecs.map((_,j) => pic.grid[i][j])));
     this.colTrackers = pic.spec.colSpecs.map((c,j) => new LineTracker(c, pic.spec.rowSpecs.map((_,i) => pic.grid[i][j])));
   }
 
-  setColor(i,j,c) {
+  setColor(i: number, j: number, c: number) {
     if (c === this.pic.getColor(i,j)) { return; }
     this.pic.setColor(i,j,c);
     if (c === null) {
@@ -140,7 +34,7 @@ export class PicrossStateTracker {
     }
   }
 
-  getStatus(i, j) {
+  getStatus(i: number, j: number) {
     return {
       code: this.statusCode(i,j),
       score: this.score(i,j),
@@ -149,7 +43,7 @@ export class PicrossStateTracker {
     };
   }
 
-  statusCode(i, j) {
+  statusCode(i: number, j: number): string {
     if (this.pic.getColor(i,j) !== null) {
       return 'solved';
     } else {
@@ -169,13 +63,13 @@ export class PicrossStateTracker {
     }
   }
 
-  trySolve(i,j) {
+  trySolve(i: number, j: number): void {
     const code = this.statusCode(i,j);
     if (code === 'black') this.setColor(i,j,1);
     if (code === 'white') this.setColor(i,j,0);
   }
 
-  trySolveAll() {
+  trySolveAll(): void {
     for (let i = 0; i < this.pic.spec.height; i++) {
       for (let j = 0; j < this.pic.spec.width; j++) {
         this.trySolve(i,j);
@@ -183,13 +77,13 @@ export class PicrossStateTracker {
     }
   }
 
-  resetFromSpec() {
+  resetFromSpec(): void {
     this.pic.resetFromSpec();
     this.rowTrackers.forEach((t)=>t.reset());
     this.colTrackers.forEach((t)=>t.reset());
   }
 
-  score(i,j) {
+  score(i: number, j: number): number {
     const row_cs = this.rowTrackers[i].getColorScores(j);
     const col_cs = this.colTrackers[j].getColorScores(i);
     const empty  = row_cs[0] * col_cs[0];
@@ -197,36 +91,44 @@ export class PicrossStateTracker {
     return (1 + (filled-empty) / (filled+empty))/2;
   }
 
-  directImplications(i,j,c) {
-    const row_impl = this.rowTrackers[i].directImplications(j,c);
-    const col_impl = this.colTrackers[j].directImplications(i,c);
-    if (row_impl === null || col_impl === null) { return null;}
-    return row_impl.map(([cell,color])=>[i,cell,color]).concat(col_impl.map(([cell,color])=>[cell,j,color]));
+  directImplications(i: number, j: number, c: number): Implication[] {
+    const row_impl = this.rowTrackers[i].directImplications(j,c).map(([cell,color])=> new Implication(i, cell, color));
+    const col_impl = this.colTrackers[j].directImplications(i,c).map(([cell,color])=> new Implication(cell, j, color));
+    return row_impl.concat(col_impl);
   }
-  assignmentsDirectImplications(i,j) {
-    return this.pic.grid[i][j].color === null ? [0,1].map((c) => this.directImplications(i,j,c)) : null;
+
+  assignmentsDirectImplications(i: number, j: number): Implication[][] {
+    return this.pic.grid[i][j].color === null ? [0,1].map((c) => this.directImplications(i,j,c)) : [];
   }
-  allDirectImplications() {
+
+  allDirectImplications(): Implication[][][][] {
     return this.pic.grid.map((r,i) => r.map((_,j) => this.assignmentsDirectImplications(i,j)));
   }
-  getCorneringSolver() {
+
+  getCorneringSolver(): CorneringSolver {
     return new CorneringSolver(this.pic, this.allDirectImplications());
   }
 }
 
 
 export class LineTracker {
-  constructor(spec, cells) {
+  spec: LineStates;
+  cells: Cell[];
+  possible_states: Set<State>[];
+  possible_cells: Set<number>[];
+
+  constructor(spec: LineStates, cells: Cell[]) {
     this.spec = spec;
     this.cells = cells;
-    this.size = cells.length;
     // Initialize the sets of possibilities
     this.possible_states = this.cells.map( () => new Set());
     this.possible_cells  = spec.states.map(() => new Set());
     this.reset();
   }
 
-  reset() {
+  get size(): number { return this.cells.length; }
+
+  reset(): void {
     // Empty posibilities
     this.possible_cells.forEach((s) => s.clear());
     this.possible_states.forEach((s) => s.clear());
@@ -236,29 +138,29 @@ export class LineTracker {
     this.cells.forEach((cell,c) => cell.color !== null ? this.setColor(c, cell.color) : undefined);
   }
 
-  addState(c,s) {
+  addState(c: number, s: State): void {
     this.possible_states[c].add(s);
     this.possible_cells[s.i].add(c);
   }
 
-  removeState(c,s) {
+  removeState(c: number, s: State): void {
     this.possible_states[c].delete(s);
     this.possible_cells[s.i].delete(c);
   }
 
     // Returns the set of eligible states for the next cell, based on current possible states
-  getEligibleNextCell(c) {
+  getEligibleNextCell(c: number): Set<State> {
     return new Set([...this.possible_states[c]].flatMap((s)=>s.following));
   }
-  getEligiblePrevCell(c) {
+  getEligiblePrevCell(c: number): Set<State> {
     return new Set([...this.possible_states[c]].flatMap((s)=>s.preceding));
   }
 
-  nextCell(c) { return (c < this.size-1 ? c+1 : null); }
-  prevCell(c) { return (c > 0           ? c-1 : null); }
+  nextCell(c: number): number | null { return (c < this.size-1 ? c+1 : null); }
+  prevCell(c: number): number | null { return (c > 0           ? c-1 : null); }
 
   // Updates a neighbor cell using this cell's eligibles states
-  updateNext(c) {
+  updateNext(c: number): void {
     const next = this.nextCell(c);
     if (next === null) { return; }
     // States allowed to remain
@@ -270,7 +172,8 @@ export class LineTracker {
       this.updateNext(next);
     }
   }
-  updatePrev(c) {
+
+  updatePrev(c: number): void {
     const prev = this.prevCell(c);
     if (prev === null) { return; }
     // States allowed to remain
@@ -283,7 +186,7 @@ export class LineTracker {
     }
   }
 
-  setColor(c, color) {
+  setColor(c: number, color: number): void {
     const toRemove = [...this.possible_states[c]].filter((s)=>s.color !== color);
     if (toRemove.length) {
       for (const s of toRemove) { this.removeState(c, s); }
@@ -292,12 +195,13 @@ export class LineTracker {
     }
   }
 
-  getColorCounts(c) {
+  getColorCounts(c: number): number[] {
     const color_counts = [0,0];
     this.possible_states[c].forEach((s)=>color_counts[s.color]++);
     return color_counts;
   }
-  getColorScores(c) {
+
+  getColorScores(c: number): number[] {
     const possible = [0,0];
     this.spec.states.forEach((s) => possible[ s.color ] += this.possible_cells[s.i].size);
     const actual = [0,0];
@@ -310,16 +214,16 @@ export class LineTracker {
   }
 
   // Returns the cells whose color that can be deduced from the given assignment assumption
-  directImplications(cell, color) {
+  directImplications(cell: number, color: number): number[][] {
     const copy = new LineTracker(this.spec, this.cells);
     copy.setColor(cell,color);
     const res = [];
-    for (let c=0; c < this.cells.length; c++) {
+    for (let c = 0; c < this.cells.length; c++) {
       if (c !== cell && this.cells[c].color === null) {
         const color_counts = copy.getColorCounts(c);
         const total = color_counts.reduce((acc,v)=>acc+v,0);
-        if (total===0) {
-          return null;
+        if (total == 0) {
+          return [];
         } else if (color_counts[0]===total) {
           res.push([c,0]);
         } else if (color_counts[1]===total) {
@@ -333,11 +237,13 @@ export class LineTracker {
 
 
 export class CorneringSolver {
-  constructor(pic, implications) {
+  pic: Picross;
+  nb_colors: number = 2;
+  keys: number[];
+  implications: number[][];
+
+  constructor(pic: Picross, implications: Implication[][][][]) {
     this.pic = pic;
-    this.height = pic.spec.height;
-    this.width  = pic.spec.width;
-    this.nb_colors = 2;
     this.keys = [];
     this.implications = new Array(this.height*this.width*this.nb_colors);
     for (let i = 0; i < this.height; i++) {
@@ -347,7 +253,7 @@ export class CorneringSolver {
             const key = this.key(i,j,c);
             if (implications[i][j][c] !== null) {
               this.keys.push(key);
-              this.implications[key] = implications[i][j][c].map(([i2,j2,c2]) => this.key(i2,j2,c2));
+              this.implications[key] = implications[i][j][c].map((imp) => this.key(imp.i, imp.j, imp.color));
             }
           }
         }
@@ -355,19 +261,22 @@ export class CorneringSolver {
     }
   }
 
-  key(i,j,c) {
+  get height(): number { return this.pic.spec.height; }
+  get width(): number { return this.pic.spec.width; }
+
+  key(i: number, j: number, c: number): number {
     return (i * this.width + j) * this.nb_colors + c;
   }
-  pos(k) { return ~~(k / this.nb_colors); }
-  i(k) { return ~~(k / (this.width * this.nb_colors)); }
-  j(k) { return this.pos(k) % this.width; }
-  c(k) { return k % this.nb_colors; }
-  triplet(k) { return [this.i(k), this.j(k), this.c(k)]; }
+  pos(k: number) { return ~~(k / this.nb_colors); }
+  i(k: number) { return ~~(k / (this.width * this.nb_colors)); }
+  j(k: number) { return this.pos(k) % this.width; }
+  c(k: number) { return k % this.nb_colors; }
+  triplet(k: number): number[] { return [this.i(k), this.j(k), this.c(k)]; }
 
-  twoStepsImpossible() {
+  twoStepsImpossible(): number[][][] {
     const steps1 = this.implications.map((impl,k) => [k, ...new Set(impl)]);
     const steps2 = steps1.map((impl)  => [...new Set(impl.flatMap((k)=>steps1[k]))]);
-    const res = [];
+    const res: number[][][] = [];
     for (const k of this.keys) {
       const impl = steps2[k].sort();
       for (let i = 0; i < impl.length-1; i++) {

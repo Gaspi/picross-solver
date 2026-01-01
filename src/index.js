@@ -1,5 +1,7 @@
+import { Picross } from './StatePicross.js';
+import { PicrossStateTracker } from './PicrossSolver.js';
+
 import { get, mk, wipe  } from './utils.js';
-import { Picross, PicrossStateTracker } from './picross.js';
 import { SVGDrawer } from './SVGDrawer.js';
 
 var svgdrawer;
