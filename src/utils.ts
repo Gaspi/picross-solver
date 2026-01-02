@@ -1,10 +1,12 @@
 
-export function get(id: string) : HTMLElement | null { return document.getElementById(id);}
+export function get(id: string) : HTMLElement | null {
+  return document.getElementById(id);
+}
 
-export function mk(elt: string, classes: Array<string> = [], innerText: string) {
+export function mk(elt: string, classes: Array<string> = [], innerText: string = "") {
   const res = document.createElement(elt);
   res.classList.add(...classes);
-  if (innerText) {
+  if (innerText != "") {
     res.innerText = innerText;
   }
   return res;

@@ -22,7 +22,7 @@ export class PicrossStateTracker {
     this.colTrackers = pic.spec.colSpecs.map((c,j) => new LineTracker(c, pic.spec.rowSpecs.map((_,i) => pic.grid[i][j])));
   }
 
-  setColor(i: number, j: number, c: number) {
+  setColor(i: number, j: number, c: number | null) {
     if (c === this.pic.getColor(i,j)) { return; }
     this.pic.setColor(i,j,c);
     if (c === null) {

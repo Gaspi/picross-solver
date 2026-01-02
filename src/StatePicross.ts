@@ -177,7 +177,7 @@ export class Picross {
     }
     this.grid = this.spec.rowSpecs.map(() => this.spec.colSpecs.map(() => (new Cell())));
   }
-  setColor(i: number, j: number, c: number): void {
+  setColor(i: number, j: number, c: number | null): void {
     this.grid[i][j].color = c;
   }
   getColor(i: number, j: number): number | null {
